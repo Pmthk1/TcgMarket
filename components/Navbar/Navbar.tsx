@@ -1,3 +1,5 @@
+"use client";  // เพิ่มบรรทัดนี้เพื่อระบุว่าเป็น Client Component
+
 import SearchBar from "./Search";
 import Logo from "./Logo";
 import DropdownListmenu from "./DropdownListmenu";

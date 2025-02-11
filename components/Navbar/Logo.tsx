@@ -1,9 +1,8 @@
-import Link from "next/link";
 import Image from "next/image";
 
 const Logo = () => {
   return (
-    <Link href="/" className="flex items-center">
+    <div className="flex items-center">
       <div className="w-20 h-20 relative">
         <Image
           src="/images/TCGLogo1.png"
@@ -13,9 +12,10 @@ const Logo = () => {
           quality={100}
           className="rounded-full object-cover"
           priority
+          unoptimized
         />
       </div>
-    </Link>
+    </div>
   );
 };
 

@@ -1,3 +1,5 @@
+"use client";
+
 import { AlignLeft, UserRound } from "lucide-react";
 import {
   DropdownMenu,
@@ -9,6 +11,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { links } from "@/utils/link";
 import Link from "next/link";
+import SignOutLinks from "./SignOutLinks";
+import { SignedIn, SignedOut, SignInButton, SignUpButton } from "@clerk/nextjs";
 
 const DropdownListmenu = () => {
   return (
@@ -21,18 +25,35 @@ const DropdownListmenu = () => {
       </DropdownMenuTrigger>
       <DropdownMenuContent>
         <DropdownMenuLabel>My Account</DropdownMenuLabel>
-        <DropdownMenuSeparator />
 
-        {links.map((item, index) => (
-          <DropdownMenuItem key={index}>
-            <Link href={item.href} className="flex items-center gap-2">
-              {item.label}
-            </Link>
+        <SignedIn>
+          <DropdownMenuSeparator />
+          {links.map((item) => (
+            <DropdownMenuItem key={item.href} asChild>
+              <Link href={item.href} className="flex items-center gap-2">
+                {item.label}
+              </Link>
+            </DropdownMenuItem>
+          ))}
+          <SignOutLinks />
+        </SignedIn>
+
+        <SignedOut>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem asChild>
+            <SignInButton>
+              <button className="w-full text-left">Sign In</button>
+            </SignInButton>
           </DropdownMenuItem>
-        ))}
+          <DropdownMenuItem asChild>
+            <SignUpButton>
+              <button className="w-full text-left">Sign Up</button>
+            </SignUpButton>
+          </DropdownMenuItem>
+        </SignedOut>
       </DropdownMenuContent>
     </DropdownMenu>
   );
 };
 
-export default DropdownListmenu; 
+export default DropdownListmenu;
