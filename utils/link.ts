@@ -5,6 +5,6 @@ export type NavLinks = {
 };
 
 export const links: NavLinks[] = [
-  { href: "/auction", label: "Auction" },
   { href: "/profile", label: "Profile" },
+  { href: "/auction", label: "Auction" },
 ];

@@ -41,12 +41,12 @@ const DropdownListmenu = () => {
         <SignedOut>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild>
-            <SignInButton>
+            <SignInButton mode="modal">
               <button className="w-full text-left">Sign In</button>
             </SignInButton>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <SignUpButton>
+            <SignUpButton mode="modal">
               <button className="w-full text-left">Sign Up</button>
             </SignUpButton>
           </DropdownMenuItem>
