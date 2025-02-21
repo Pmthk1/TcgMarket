@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import Footer from "../components/ui/Footer";
 import { Search } from "lucide-react";
 import SlidePromotion from "../components/ui/SlidePromotion";
+import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
+import Link from "next/link";
 
 const cardData = [
   { id: 1, name: "buggy", image: "/images/buggy.png", link: "/Card1" },
@@ -33,6 +34,7 @@ const HomePage: React.FC = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
+      {/* Search Bar */}
       <div className="p-14 flex justify-start">
         <div className="flex items-center border border-gray-500 rounded-xl p-2 focus-within:ring-2 focus-within:ring-blue-400 w-64">
           <Search className="w-5 h-5 text-gray-500 mr-2" />
@@ -50,33 +52,53 @@ const HomePage: React.FC = () => {
         </div>
       </div>
 
-      {/* เพิ่ม SlidePromotion เพื่อแสดงผลโปรโมชั่น */}
+      {/* Slide Promotion */}
       <SlidePromotion />
 
+      {/* แสดงการ์ด */}
       <main className={`flex-grow ${filteredCards.length === 0 ? 'flex items-center justify-center' : 'p-14 flex flex-wrap justify-center gap-8'}`}>
         {filteredCards.length > 0 ? (
           filteredCards.map(card => (
-            <Link href={card.link} key={card.id} passHref>
-              <div className="text-center flex flex-col items-center transform transition-transform duration-300 hover:scale-105 cursor-pointer mt-10">
-                <Image
-                  src={card.image}
-                  alt={card.name}
-                  width={200}
-                  height={420}
-                  className="rounded-xl shadow-lg mx-auto object-cover aspect-[2/3]"
-                />
-                <p className="mt-4 text-lg font-medium">{card.name}</p>
-              </div>
-            </Link>
+            <div key={card.id} className="text-center flex flex-col items-center transform transition-transform duration-300 hover:scale-105 cursor-pointer mt-10">
+              
+              {/* ถ้าล็อกอินแล้วให้กดที่รูปเข้าไปดูได้เลย */}
+              <SignedIn>
+                <Link href={card.link} passHref>
+                  <Image
+                    src={card.image}
+                    alt={card.name}
+                    width={200}
+                    height={420}
+                    className="rounded-xl shadow-lg mx-auto object-cover aspect-[2/3]"
+                  />
+                </Link>
+              </SignedIn>
+
+              {/* ถ้ายังไม่ล็อกอิน กดที่รูปแล้วเปิด Sign In Modal */}
+              <SignedOut>
+                <SignInButton mode="modal">
+                  <Image
+                    src={card.image}
+                    alt={card.name}
+                    width={200}
+                    height={420}
+                    className="rounded-xl shadow-lg mx-auto object-cover aspect-[2/3]"
+                  />
+                </SignInButton>
+              </SignedOut>
+
+              <p className="mt-4 text-lg font-medium">{card.name}</p>
+            </div>
           ))
         ) : (
           <p className="text-center text-2xl font-semibold text-gray-700">ไม่พบการ์ดที่ค้นหา</p>
         )}
       </main>
 
+      {/* Footer */}
       <Footer />
     </div>
   );
 };
 
-export default HomePage; 
+export default HomePage;

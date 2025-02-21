@@ -1,0 +1,152 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AuctionStatus {
+  PENDING // รอเปิด
+  ACTIVE // กำลังประมูล
+  CLOSED // ปิดประมูลแล้ว
+  COMPLETED // เสร็จสิ้น (ชำระเงินแล้ว)
+}
+
+model User {
+  id                 String        @id @default(uuid())
+  clerkId            String        @unique
+  username           String        @unique
+  email              String        @unique
+  password           String
+  role               String        @default("user")
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  BankAccounts       BankAccount[]
+  Bids               Bid[]
+  Cart               Cart[]
+  Orders             Order[]
+  TransactionsBuyer  Transaction[] @relation("BuyerTransactions")
+  TransactionsSeller Transaction[] @relation("SellerTransactions")
+  AdminActions       AdminAction[]
+  Auctions           Auction[]     @relation("HighestBidder")
+}
+
+model BankAccount {
+  id            String        @id @default(uuid())
+  userId        String
+  user          User          @relation(fields: [userId], references: [id])
+  bankName      String
+  accountNumber String        @unique
+  accountName   String
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  Orders        Order[]
+  Transactions  Transaction[]
+}
+
+model Card {
+  id               String        @id @default(uuid())
+  name             String
+  description      String?
+  category         String
+  imageUrl         String
+  price            Float?
+  createdByAdminId String?
+  updatedByAdminId String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  Auctions         Auction[]
+  Cart             Cart[]
+  Transactions     Transaction[]
+}
+
+model Auction {
+  id               String        @id @default(uuid())
+  cardId           String        @unique
+  card             Card          @relation(fields: [cardId], references: [id])
+  startPrice       Float
+  currentPrice     Float
+  minimumIncrement Float         @default(10)
+  highestBidderId  String?
+  highestBidder    User?         @relation(fields: [highestBidderId], references: [id], name: "HighestBidder")
+  endPrice         Float?
+  startTime        DateTime
+  endTime          DateTime
+  status           AuctionStatus @default(PENDING) // ✅ ใช้ Enum ถูกต้อง
+  isClosed         Boolean       @default(false)
+  createdByAdminId String? // ✅ Admin ที่สร้างการประมูล
+  createdAt        DateTime      @default(now())
+  Bids             Bid[]
+  Transactions     Transaction[] @relation("AuctionTransactions")
+}
+
+model Bid {
+  id        String   @id @default(uuid())
+  auctionId String
+  auction   Auction  @relation(fields: [auctionId], references: [id])
+  bidderId  String
+  bidder    User     @relation(fields: [bidderId], references: [id])
+  amount    Float
+  isHighest Boolean  @default(false)
+  bidTime   DateTime @default(now())
+
+  // ✅ ลบ `@relation()` ออก
+  transaction Transaction?
+}
+
+model Cart {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  cardId     String
+  card       Card     @relation(fields: [cardId], references: [id])
+  quantity   Int
+  totalPrice Float
+  createdAt  DateTime @default(now())
+}
+
+model Order {
+  id              String      @id @default(uuid())
+  userId          String
+  user            User        @relation(fields: [userId], references: [id])
+  totalAmount     Float
+  paymentMethod   String
+  bankAccountId   String
+  bankAccount     BankAccount @relation(fields: [bankAccountId], references: [id])
+  paymentStatus   String      @default("pending")
+  proofOfTransfer String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+model Transaction {
+  id              String      @id @default(uuid())
+  bidId           String?     @unique // ✅ ต้องกำหนดเป็น @unique (One-to-One Relation)
+  bid             Bid?        @relation(fields: [bidId], references: [id]) // ✅ แก้ให้ถูกต้อง
+  auctionId       String?
+  auction         Auction?    @relation(fields: [auctionId], references: [id], name: "AuctionTransactions")
+  buyerId         String
+  buyer           User        @relation(fields: [buyerId], references: [id], name: "BuyerTransactions")
+  sellerId        String
+  seller          User        @relation(fields: [sellerId], references: [id], name: "SellerTransactions")
+  cardId          String
+  card            Card        @relation(fields: [cardId], references: [id])
+  price           Float
+  paymentMethod   String
+  bankAccountId   String
+  bankAccount     BankAccount @relation(fields: [bankAccountId], references: [id])
+  paymentStatus   String      @default("pending")
+  transactionDate DateTime    @default(now())
+  proofOfTransfer String?
+}
+
+model AdminAction {
+  id         String   @id @default(uuid())
+  adminId    String
+  admin      User     @relation(fields: [adminId], references: [id])
+  actionType String
+  targetId   String
+  timestamp  DateTime @default(now())
+}

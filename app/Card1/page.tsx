@@ -1,8 +1,23 @@
 'use client';
 import Image from 'next/image';
 import CloseIcon from '@/components/ui/CloseIcon';
+import { useCart } from '@/components/context/CartContext';
 
 const Card1 = () => {
+  const { addToCart } = useCart();
+
+  const product = {
+    id: "buggy-001",
+    name: "buggy",
+    price: 150,
+    image: "/images/buggy.png",
+    quantity: 1
+  };
+
+  const handleAddToCart = () => {
+    addToCart(product);
+  };
+
   return (
     <div className="p-12 bg-blue-100 min-h-screen flex flex-col items-center">
       <div className="relative bg-white p-4 rounded-lg shadow-lg w-full max-w-3xl border border-gray-50">
@@ -12,9 +27,19 @@ const Card1 = () => {
           <div className="text-left">
             <p className="text-lg font-semibold">ชื่อสินค้า: <span className="font-normal">buggy</span></p>
             <p className="text-lg font-semibold mt-2">รายละเอียดสินค้า:</p>
-            <p className="mt-1">มาจากแพคการ์ด <strong>one piece op 010</strong><br />เป็นตัวละครลูกเรือคนเขียน</p>
+            <p className="mt-1">
+              มาจากแพคการ์ด <strong>one piece op 010</strong>
+              <br />
+              เป็นตัวละครลูกเรือคนเขียน
+            </p>
+            <p className="text-lg font-semibold mt-2">ราคา: <span className="font-normal">฿150</span></p>
             <div className="flex items-center mt-4">
-              <button className="px-4 py-2 bg-blue-500 text-white rounded-lg shadow">เพิ่มใส่ตะกร้า</button>
+              <button 
+                onClick={handleAddToCart}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg shadow"
+              >
+                เพิ่มใส่ตะกร้า
+              </button>
               <Image src="/images/anime1.png" alt="anime icon" width={50} height={50} className="ml-4" />
             </div>
           </div>
@@ -25,3 +50,5 @@ const Card1 = () => {
 };
 
 export default Card1;
+
+
