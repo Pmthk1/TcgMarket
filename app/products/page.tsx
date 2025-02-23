@@ -4,10 +4,10 @@ import Link from 'next/link';
 import { useState } from 'react';
 
 const products = [
-  { id: 7, name: 'อีวุย', image: '/images/eevee.png', price: 500, type: 'pokemon' },  
-  { id: 8, name: 'บูสเตอร์ EX', image: '/images/booster-ex.png', price: 650, type: 'pokemon' },
-  { id: 9, name: 'อีวุย EX', image: '/images/eevee-ex.png', price: 700, type: 'pokemon' },
-  { id: 10, name: 'ชาวเวอร์ส EX', image: '/images/shower-ex.png', price: 750, type: 'pokemon' },
+  { id: 7, name: 'อีวุย', image: '/images/eevee.png', price: 250, type: 'pokemon' },  
+  { id: 8, name: 'บูสเตอร์ EX', image: '/images/booster-ex.png', price: 400, type: 'pokemon' },
+  { id: 9, name: 'อีวุย EX', image: '/images/eevee-ex.png', price: 350, type: 'pokemon' },
+  { id: 10, name: 'ชาวเวอร์ส EX', image: '/images/shower-ex.png', price: 420, type: 'pokemon' },
   { id: 11, name: 'Silvers Rayleigh', image: '/images/silvers-rayleigh.png', price: 800, type: 'one piece' },
   { id: 12, name: 'GOD Ene', image: '/images/god-ene.png', price: 850, type: 'one piece' },
   { id: 13, name: 'Sabo', image: '/images/sabo.png', price: 900, type: 'one piece' },

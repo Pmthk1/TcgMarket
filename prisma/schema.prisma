@@ -8,10 +8,10 @@ datasource db {
 }
 
 enum AuctionStatus {
-  PENDING // รอเปิด
-  ACTIVE // กำลังประมูล
-  CLOSED // ปิดประมูลแล้ว
-  COMPLETED // เสร็จสิ้น (ชำระเงินแล้ว)
+  PENDING    // รอเปิด
+  ACTIVE     // กำลังประมูล
+  CLOSED     // ปิดประมูลแล้ว
+  COMPLETED  // เสร็จสิ้น (ชำระเงินแล้ว)
 }
 
 model User {
@@ -19,7 +19,7 @@ model User {
   clerkId            String        @unique
   username           String        @unique
   email              String        @unique
-  password           String
+  password           String?
   role               String        @default("user")
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
@@ -44,6 +44,17 @@ model BankAccount {
   updatedAt     DateTime      @updatedAt
   Orders        Order[]
   Transactions  Transaction[]
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  category    String
+  imageUrl    String
+  price       Float?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model Card {
@@ -74,9 +85,9 @@ model Auction {
   endPrice         Float?
   startTime        DateTime
   endTime          DateTime
-  status           AuctionStatus @default(PENDING) // ✅ ใช้ Enum ถูกต้อง
+  status           AuctionStatus @default(PENDING)
   isClosed         Boolean       @default(false)
-  createdByAdminId String? // ✅ Admin ที่สร้างการประมูล
+  createdByAdminId String?
   createdAt        DateTime      @default(now())
   Bids             Bid[]
   Transactions     Transaction[] @relation("AuctionTransactions")
@@ -91,8 +102,6 @@ model Bid {
   amount    Float
   isHighest Boolean  @default(false)
   bidTime   DateTime @default(now())
-
-  // ✅ ลบ `@relation()` ออก
   transaction Transaction?
 }
 
@@ -123,8 +132,8 @@ model Order {
 
 model Transaction {
   id              String      @id @default(uuid())
-  bidId           String?     @unique // ✅ ต้องกำหนดเป็น @unique (One-to-One Relation)
-  bid             Bid?        @relation(fields: [bidId], references: [id]) // ✅ แก้ให้ถูกต้อง
+  bidId           String?     @unique
+  bid             Bid?        @relation(fields: [bidId], references: [id])
   auctionId       String?
   auction         Auction?    @relation(fields: [auctionId], references: [id], name: "AuctionTransactions")
   buyerId         String

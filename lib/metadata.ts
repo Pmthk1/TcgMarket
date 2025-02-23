@@ -10,13 +10,13 @@ export const updateUserMetadata = async (
   metadata: Record<string, unknown>
 ) => {
   try {
-    await clerkClient.users.updateUser(userId, {
+    const user = await clerkClient.users.updateUser(userId, {
       publicMetadata: {
         ...metadata,
       },
     });
 
-    console.log(`✅ Updated public metadata for user ${userId}`);
+    console.log(`✅ Updated public metadata for user ${userId}:`, user.publicMetadata);
   } catch (error) {
     console.error(`❌ Failed to update metadata for user ${userId}:`, error);
   }
@@ -30,6 +30,7 @@ export const updateUserMetadata = async (
 export const getUserMetadata = async (userId: string) => {
   try {
     const user = await clerkClient.users.getUser(userId);
+    console.log(`📌 Current Metadata for ${userId}:`, user.publicMetadata);
     return user.publicMetadata;
   } catch (error) {
     console.error(`❌ Failed to fetch metadata for user ${userId}:`, error);

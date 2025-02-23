@@ -4,13 +4,13 @@ import { useCart } from "@/components/context/CartContext";
 import Image from "next/image";
 import { useUser, useClerk } from "@clerk/nextjs";
 import { CartItem } from "@/components/context/CartContext";
-
-// Rest of your CartPage component code...
+import { useRouter } from "next/navigation";
 
 const CartPage = () => {
   const { cart, clearCart, updateQuantity } = useCart();
   const { isSignedIn } = useUser();
   const { openSignIn } = useClerk();
+  const router = useRouter(); // ✅ ใช้ router เพื่อไปหน้าชำระเงิน
 
   if (!isSignedIn) {
     openSignIn();
@@ -27,6 +27,11 @@ const CartPage = () => {
     if (item.quantity > 1) {
       updateQuantity(item.id, item.quantity - 1);
     }
+  };
+
+  const handleCheckout = () => {
+    if (cart.length === 0) return; // ถ้าไม่มีสินค้า ไม่ให้กดไปชำระเงิน
+    router.push("/payments");
   };
 
   return (
@@ -72,12 +77,15 @@ const CartPage = () => {
               <p>รวมทั้งหมด:</p>
               <p>฿{totalPrice}</p>
             </div>
-            <button className="bg-green-500 text-white px-6 py-3 rounded-lg font-bold text-lg shadow-md transition-all">
+            <button
+              onClick={handleCheckout} // ✅ กดแล้วไปหน้าชำระเงิน
+              className="bg-green-500 text-white px-6 py-3 rounded-lg font-bold text-lg shadow-md"
+            >
               สั่งซื้อสินค้า
             </button>
             <button
               onClick={clearCart}
-              className="bg-red-500 text-white px-6 py-3 rounded-lg font-bold text-lg shadow-md transition-all"
+              className="bg-red-500 text-white px-6 py-3 rounded-lg font-bold text-lg shadow-md"
             >
               ลบสินค้าทั้งหมด
             </button>

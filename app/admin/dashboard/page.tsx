@@ -1,7 +1,7 @@
 "use client";
-import AdminHeader from "@/app/admin/dashboard/components/AdminHeader"; 
-import AdminCard from "@/app/admin/dashboard/components/AdminCard"; // ✅ ต้องมี export default ในไฟล์นี้
-import ReportChart from "@/app/admin/dashboard/components/ReportChart";
+import AdminHeader from "@/app/admin/components/AdminHeader"; 
+import AdminCard from "@/app/admin/components/AdminCard"; // ✅ ต้องมี export default ในไฟล์นี้
+import ReportChart from "@/app/admin/components/ReportChart";
 
 export default function AdminDashboard() {
   return (

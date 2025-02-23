@@ -6,8 +6,12 @@ const nextConfig = {
         protocol: "https",
         hostname: "img.clerk.com",
       },
+      {
+        protocol: "https",
+        hostname: "xyz.supabase.co", // เปลี่ยนเป็นโดเมนของ Supabase ของคุณ
+      },
     ],
   },
 };
 
-module.exports = nextConfig;
+export default nextConfig;

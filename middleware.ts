@@ -1,36 +1,52 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { clerkClient } from "@clerk/clerk-sdk-node";
 
 const isProtectedRoute = createRouteMatcher([
   "/profile(.*)",
   "/auctions(.*)",
   "/Card(.*)",
-  "/checkout(.*)", // ต้องล็อกอินก่อนเข้า
+  "/checkout(.*)",
 ]);
 
-const isAdminRoute = createRouteMatcher([
-  "/admin(.*)", // ป้องกันเฉพาะ role=admin
-]);
+const isAdminRoute = createRouteMatcher(["/admin(.*)"]);
 
 export default clerkMiddleware(async (auth, req) => {
-  const { sessionClaims, redirectToSignIn } = await auth(); 
+  const { sessionClaims, redirectToSignIn, userId } = await auth();
+  console.log("🔍 Middleware Debug: Checking Request for", req.nextUrl.pathname);
+  console.log("📌 Session Claims:", JSON.stringify(sessionClaims, null, 2));
 
-  if (isProtectedRoute(req) && !sessionClaims) {
-    return redirectToSignIn(); 
+  if (isProtectedRoute(req) && !sessionClaims) { // ✅ ใช้ req แทน req.nextUrl.pathname
+    console.log("🔒 Protected Route: User not authenticated");
+    return redirectToSignIn();
   }
 
-  if (isAdminRoute(req)) {
-    if (!sessionClaims) {
+  if (isAdminRoute(req)) { // ✅ ใช้ req แทน req.nextUrl.pathname
+    if (!userId) {
+      console.log("🚫 Unauthorized: No session claims found");
       return new Response("Unauthorized", { status: 401 });
     }
 
-    // ✅ ใช้ TypeScript Safe Access ป้องกัน `role` เป็น `undefined`
-    const metadata = sessionClaims.publicMetadata as Record<string, unknown> | undefined;
+    // ✅ ดึงข้อมูลผู้ใช้จาก Clerk Backend SDK
+    let metadata;
+    try {
+      const user = await clerkClient.users.getUser(userId);
+      metadata = user.publicMetadata;
+      console.log("🛠️ User Data from Clerk:", JSON.stringify(user, null, 2));
+    } catch (error) {
+      console.error("❌ Error fetching user from Clerk:", error);
+      return new Response("Internal Server Error", { status: 500 });
+    }
+
     const role = metadata?.role as string | undefined;
+    console.log("🔎 Checking Admin Role:", role);
 
     if (role !== "admin") {
-      return new Response("Forbidden", { status: 403 }); 
+      console.log("🚫 Access Denied: User is not admin");
+      return new Response("Forbidden", { status: 403 });
     }
   }
+
+  return;
 });
 
 export const config = {

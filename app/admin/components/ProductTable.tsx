@@ -1,6 +1,7 @@
+"use client";
 import Image from "next/image";
 
-interface Card { // ✅ กำหนด type สำหรับข้อมูลสินค้า
+interface Product {
   id: string;
   name: string;
   description: string;
@@ -9,7 +10,7 @@ interface Card { // ✅ กำหนด type สำหรับข้อมู�
   imageUrl: string;
 }
 
-export default function CardTable({ cards }: { cards: Card[] }) { // ✅ กำหนด type ของ props
+export default function ProductTable({ products }: { products: Product[] }) {
   return (
     <table className="w-full mt-4 border">
       <thead>
@@ -23,17 +24,25 @@ export default function CardTable({ cards }: { cards: Card[] }) { // ✅ กำ�
         </tr>
       </thead>
       <tbody>
-        {cards.map((card: Card) => ( // ✅ กำหนด type ของ card
-          <tr key={card.id} className="text-center">
-            <td className="p-2 border">{card.name}</td>
-            <td className="p-2 border">{card.description}</td>
-            <td className="p-2 border">{card.category}</td>
-            <td className="p-2 border">฿{card.price}</td>
+        {products.map((product) => (
+          <tr key={product.id} className="text-center">
+            <td className="p-2 border">{product.name}</td>
+            <td className="p-2 border">{product.description}</td>
+            <td className="p-2 border">{product.category}</td>
+            <td className="p-2 border">฿{product.price}</td>
             <td className="p-2 border">
-              <Image src={card.imageUrl} alt={card.name} width={50} height={50} className="mx-auto" />
+              <Image
+                src={product.imageUrl}
+                alt={product.name}
+                width={50}
+                height={50}
+                className="mx-auto"
+              />
             </td>
             <td className="p-2 border">
-              <button className="bg-red-500 text-white px-2 py-1 rounded">ลบ</button>
+              <button className="bg-red-500 text-white px-2 py-1 rounded">
+                ลบ
+              </button>
             </td>
           </tr>
         ))}
