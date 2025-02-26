@@ -1,5 +1,3 @@
-"use client";
-
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,19 +7,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
-import SignOutLinks from "./SignOutLinks";
-import { SignedIn, SignedOut, SignInButton, SignUpButton, useUser } from "@clerk/nextjs";
+import { SignedIn, SignedOut, SignInButton, SignUpButton, useUser, useClerk } from "@clerk/nextjs";
 import Image from "next/image";
-import { ChevronDown, ChevronUp, User } from "lucide-react";
+import { User, ChevronDown, ChevronUp } from "lucide-react";
 import { useState } from "react";
 
 const DropdownListmenu: React.FC = () => {
   const { user } = useUser();
-  const [openMenu, setOpenMenu] = useState<string | null>(null);
-
-  const toggleMenu = (menu: string) => {
-    setOpenMenu(openMenu === menu ? null : menu);
-  };
+  const { signOut } = useClerk();
+  const [isAuctionsOpen, setIsAuctionsOpen] = useState(false);
+  const [isBidsOpen, setIsBidsOpen] = useState(false);
 
   return (
     <div className="relative mt-1">
@@ -40,8 +35,11 @@ const DropdownListmenu: React.FC = () => {
             <User className="w-8 h-10 text-black-500" />
           )}
         </DropdownMenuTrigger>
+
         <DropdownMenuContent align="end" className="bg-white shadow-lg rounded-md w-52 p-2">
-          <DropdownMenuLabel className="text-lg font-semibold text-gray-700 px-3 py-2">My Account</DropdownMenuLabel>
+          <DropdownMenuLabel className="text-lg font-semibold text-gray-700 px-3 py-2">
+            My Account
+          </DropdownMenuLabel>
           <DropdownMenuSeparator />
 
           <SignedIn>
@@ -63,64 +61,69 @@ const DropdownListmenu: React.FC = () => {
               </Link>
             </DropdownMenuItem>
 
-            <div className="relative">
-              <button
-                className="w-full text-left px-3 py-2 text-sm text-gray-800 flex justify-between items-center hover:bg-gray-100 rounded-md"
-                onClick={() => toggleMenu("auctions")}
-              >
-                Auctions {openMenu === "auctions" ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              </button>
-              {openMenu === "auctions" && (
-                <div className="pl-5 mt-1 space-y-1">
-                  <DropdownMenuItem asChild>
-                    <Link href="/auctions/live" className="block px-3 py-1 text-sm text-gray-600 hover:bg-gray-200 rounded-md">
-                      กำลังประมูล
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/auctions/won" className="block px-3 py-1 text-sm text-gray-600 hover:bg-gray-200 rounded-md">
-                      ประมูลที่ชนะ
-                    </Link>
-                  </DropdownMenuItem>
-                </div>
-              )}
-            </div>
+            {/* Auctions */}
+            <DropdownMenuItem
+              className="flex justify-between items-center px-3 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-md cursor-pointer"
+              onClick={(e) => {
+                e.preventDefault();
+                setIsAuctionsOpen(!isAuctionsOpen);
+              }}
+            >
+              Auctions {isAuctionsOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </DropdownMenuItem>
+            {isAuctionsOpen && (
+              <div className="pl-6">
+                <DropdownMenuItem asChild>
+                  <Link href="/auctions/live" className="block px-3 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-md">
+                    Live Auctions
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/auctions/won" className="block px-3 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-md">
+                    Won Auctions
+                  </Link>
+                </DropdownMenuItem>
+              </div>
+            )}
 
-            <div className="relative">
-              <button
-                className="w-full text-left px-3 py-2 text-sm text-gray-800 flex justify-between items-center hover:bg-gray-100 rounded-md"
-                onClick={() => toggleMenu("bids")}
-              >
-                Bids {openMenu === "bids" ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              </button>
-              {openMenu === "bids" && (
-                <div className="pl-5 mt-1 space-y-1">
-                  <DropdownMenuItem asChild>
-                    <Link href="/bids/history" className="block px-3 py-1 text-sm text-gray-600 hover:bg-gray-200 rounded-md">
-                      ประวัติการประมูล
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/bids/active" className="block px-3 py-1 text-sm text-gray-600 hover:bg-gray-200 rounded-md">
-                      กำลังเสนอราคา
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/bids/lost" className="block px-3 py-1 text-sm text-gray-600 hover:bg-gray-200 rounded-md">
-                      แพ้การประมูล
-                    </Link>
-                  </DropdownMenuItem>
-                </div>
-              )}
-            </div>
+            {/* Bids */}
+            <DropdownMenuItem
+              className="flex justify-between items-center px-3 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-md cursor-pointer"
+              onClick={(e) => {
+                e.preventDefault();
+                setIsBidsOpen(!isBidsOpen);
+              }}
+            >
+              Bids {isBidsOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </DropdownMenuItem>
+            {isBidsOpen && (
+              <div className="pl-6">
+                <DropdownMenuItem asChild>
+                  <Link href="/bids/current" className="block px-3 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-md">
+                    Current Bids
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/bids/history" className="block px-3 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-md">
+                    Bid History
+                  </Link>
+                </DropdownMenuItem>
+              </div>
+            )}
 
             <DropdownMenuItem asChild>
-              <Link href="/payments" className="block px-3 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-md">
-                Payments
+              <Link href="/payments/history" className="block px-3 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-md">
+                Payments History
               </Link>
             </DropdownMenuItem>
 
-            <SignOutLinks />
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="text-red-600 px-3 py-2 cursor-pointer hover:bg-gray-100 rounded-md"
+              onClick={() => signOut()}
+            >
+              Logout
+            </DropdownMenuItem>
           </SignedIn>
 
           <SignedOut>

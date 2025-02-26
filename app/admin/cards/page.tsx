@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import CardTable from "../../components/CardTable";
+import CardTable from "../../admin/components/CardTable";
 
 interface Card {
   id: string;

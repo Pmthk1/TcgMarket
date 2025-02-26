@@ -1,5 +1,6 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { clerkClient } from "@clerk/clerk-sdk-node";
+import { NextRequest } from "next/server"; // ✅ Import NextRequest
 
 const isProtectedRoute = createRouteMatcher([
   "/profile(.*)",
@@ -10,8 +11,16 @@ const isProtectedRoute = createRouteMatcher([
 
 const isAdminRoute = createRouteMatcher(["/admin(.*)"]);
 
-export default clerkMiddleware(async (auth, req) => {
-  const { sessionClaims, redirectToSignIn, userId } = await auth();
+export default clerkMiddleware(async (auth, req: NextRequest) => { // ✅ กำหนด type ให้ req
+  const session = await auth();
+
+  if (!session) {
+    console.log("🚫 No session found, skipping middleware");
+    return;
+  }
+
+  const { sessionClaims, redirectToSignIn, userId } = session;
+
   console.log("🔍 Middleware Debug: Checking Request for", req.nextUrl.pathname);
   console.log("📌 Session Claims:", JSON.stringify(sessionClaims, null, 2));
 
@@ -26,7 +35,7 @@ export default clerkMiddleware(async (auth, req) => {
       return new Response("Unauthorized", { status: 401 });
     }
 
-    // ✅ ดึงข้อมูลผู้ใช้จาก Clerk Backend SDK
+    // ดึงข้อมูลผู้ใช้จาก Clerk Backend SDK
     let metadata;
     try {
       const user = await clerkClient.users.getUser(userId);
@@ -51,7 +60,7 @@ export default clerkMiddleware(async (auth, req) => {
 
 export const config = {
   matcher: [
-    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
+    "/((?!_next|api/auth|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
     "/(api|trpc)(.*)",
   ],
 };

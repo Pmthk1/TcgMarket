@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useCart } from "@/components/context/CartContext";
 import { useRouter } from "next/navigation";
 
-const PaymentPage = () => {
+const PaymentMethods = () => {
   const { cart } = useCart();
   const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
   const router = useRouter();
@@ -14,7 +14,7 @@ const PaymentPage = () => {
 
   const handlePayment = () => {
     if (!selectedMethod) return;
-    router.push("/payments/qrcode");
+    router.push("/payments/qrcode"); // ✅ เปลี่ยนเส้นทางไปที่ `/payments/qrcode`
   };
 
   return (
@@ -44,4 +44,4 @@ const PaymentPage = () => {
   );
 };
 
-export default PaymentPage;
+export default PaymentMethods;

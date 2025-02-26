@@ -10,7 +10,7 @@ const CartPage = () => {
   const { cart, clearCart, updateQuantity } = useCart();
   const { isSignedIn } = useUser();
   const { openSignIn } = useClerk();
-  const router = useRouter(); // ✅ ใช้ router เพื่อไปหน้าชำระเงิน
+  const router = useRouter();
 
   if (!isSignedIn) {
     openSignIn();
@@ -30,8 +30,8 @@ const CartPage = () => {
   };
 
   const handleCheckout = () => {
-    if (cart.length === 0) return; // ถ้าไม่มีสินค้า ไม่ให้กดไปชำระเงิน
-    router.push("/payments");
+    if (cart.length === 0) return;
+    router.push("/payments/methods");
   };
 
   return (
@@ -54,19 +54,9 @@ const CartPage = () => {
                 <p className="font-semibold text-gray-800">{item.name}</p>
                 <p className="text-gray-600 text-sm">฿{item.price}</p>
                 <div className="flex items-center gap-2 mt-2">
-                  <button
-                    onClick={() => handleDecreaseQuantity(item)}
-                    className="px-2 py-1 rounded-lg"
-                  >
-                    -
-                  </button>
+                  <button onClick={() => handleDecreaseQuantity(item)} className="px-2 py-1 rounded-lg">-</button>
                   <span className="text-gray-800">{item.quantity}</span>
-                  <button
-                    onClick={() => handleIncreaseQuantity(item)}
-                    className="px-2 py-1 rounded-lg"
-                  >
-                    +
-                  </button>
+                  <button onClick={() => handleIncreaseQuantity(item)} className="px-2 py-1 rounded-lg">+</button>
                 </div>
               </div>
               <p className="font-semibold text-gray-800">฿{item.price * item.quantity}</p>
@@ -78,7 +68,7 @@ const CartPage = () => {
               <p>฿{totalPrice}</p>
             </div>
             <button
-              onClick={handleCheckout} // ✅ กดแล้วไปหน้าชำระเงิน
+              onClick={handleCheckout}
               className="bg-green-500 text-white px-6 py-3 rounded-lg font-bold text-lg shadow-md"
             >
               สั่งซื้อสินค้า

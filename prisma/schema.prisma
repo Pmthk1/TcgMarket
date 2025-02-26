@@ -8,10 +8,29 @@ datasource db {
 }
 
 enum AuctionStatus {
-  PENDING    // รอเปิด
-  ACTIVE     // กำลังประมูล
-  CLOSED     // ปิดประมูลแล้ว
-  COMPLETED  // เสร็จสิ้น (ชำระเงินแล้ว)
+  PENDING
+  ACTIVE
+  CLOSED
+  COMPLETED
+}
+
+enum PaymentMethod {
+  PROMPTPAY
+  CREDIT_CARD
+  BANK_TRANSFER
+  PAYPAL
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum UserRole {
+  USER
+  ADMIN
 }
 
 model User {
@@ -19,31 +38,15 @@ model User {
   clerkId            String        @unique
   username           String        @unique
   email              String        @unique
-  password           String?
-  role               String        @default("user")
+  role               UserRole      @default(USER)
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
-  BankAccounts       BankAccount[]
   Bids               Bid[]
-  Cart               Cart[]
   Orders             Order[]
   TransactionsBuyer  Transaction[] @relation("BuyerTransactions")
   TransactionsSeller Transaction[] @relation("SellerTransactions")
-  AdminActions       AdminAction[]
   Auctions           Auction[]     @relation("HighestBidder")
-}
-
-model BankAccount {
-  id            String        @id @default(uuid())
-  userId        String
-  user          User          @relation(fields: [userId], references: [id])
-  bankName      String
-  accountNumber String        @unique
-  accountName   String
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  Orders        Order[]
-  Transactions  Transaction[]
+  Payments           Payment[]     @relation("UserPayments")
 }
 
 model Product {
@@ -58,104 +61,103 @@ model Product {
 }
 
 model Card {
-  id               String        @id @default(uuid())
-  name             String
-  description      String?
-  category         String
-  imageUrl         String
-  price            Float?
-  createdByAdminId String?
-  updatedByAdminId String?
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
-  Auctions         Auction[]
-  Cart             Cart[]
-  Transactions     Transaction[]
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  category    String
+  imageUrl    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  auctions    Auction[] @relation("CardAuctions")
 }
 
 model Auction {
   id               String        @id @default(uuid())
-  cardId           String        @unique
-  card             Card          @relation(fields: [cardId], references: [id])
+  cardId           String        
+  card             Card          @relation(fields: [cardId], references: [id], name: "CardAuctions", onDelete: Cascade)
+  cardName         String
   startPrice       Float
   currentPrice     Float
-  minimumIncrement Float         @default(10)
-  highestBidderId  String?
-  highestBidder    User?         @relation(fields: [highestBidderId], references: [id], name: "HighestBidder")
-  endPrice         Float?
+  highestBidderId  String?       
+  highestBidder    User?         @relation(fields: [highestBidderId], references: [id], name: "HighestBidder", onDelete: SetNull)
   startTime        DateTime
   endTime          DateTime
   status           AuctionStatus @default(PENDING)
-  isClosed         Boolean       @default(false)
-  createdByAdminId String?
   createdAt        DateTime      @default(now())
-  Bids             Bid[]
+  Bids             Bid[] 
   Transactions     Transaction[] @relation("AuctionTransactions")
+  description      String?
+  imageUrl         String?
+
+  @@index([cardId])
 }
 
 model Bid {
   id        String   @id @default(uuid())
   auctionId String
-  auction   Auction  @relation(fields: [auctionId], references: [id])
+  auction   Auction  @relation(fields: [auctionId], references: [id], onDelete: Cascade)
   bidderId  String
-  bidder    User     @relation(fields: [bidderId], references: [id])
+  bidder    User     @relation(fields: [bidderId], references: [id], onDelete: Cascade)
   amount    Float
-  isHighest Boolean  @default(false)
   bidTime   DateTime @default(now())
-  transaction Transaction?
-}
 
-model Cart {
-  id         String   @id @default(uuid())
-  userId     String
-  user       User     @relation(fields: [userId], references: [id])
-  cardId     String
-  card       Card     @relation(fields: [cardId], references: [id])
-  quantity   Int
-  totalPrice Float
-  createdAt  DateTime @default(now())
+  @@index([auctionId])
 }
 
 model Order {
-  id              String      @id @default(uuid())
+  id              String   @id @default(uuid())
   userId          String
-  user            User        @relation(fields: [userId], references: [id])
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   totalAmount     Float
-  paymentMethod   String
-  bankAccountId   String
-  bankAccount     BankAccount @relation(fields: [bankAccountId], references: [id])
-  paymentStatus   String      @default("pending")
-  proofOfTransfer String?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  paymentMethod   PaymentMethod @default(PROMPTPAY)
+  paymentStatus   PaymentStatus @default(PENDING)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  Payments        Payment[] @relation("OrderPayments")
+
+  @@index([userId])
 }
 
 model Transaction {
-  id              String      @id @default(uuid())
-  bidId           String?     @unique
-  bid             Bid?        @relation(fields: [bidId], references: [id])
-  auctionId       String?
-  auction         Auction?    @relation(fields: [auctionId], references: [id], name: "AuctionTransactions")
+  id              String   @id @default(uuid())
+  auctionId       String
+  auction         Auction  @relation(fields: [auctionId], references: [id], name: "AuctionTransactions", onDelete: Cascade)
   buyerId         String
-  buyer           User        @relation(fields: [buyerId], references: [id], name: "BuyerTransactions")
+  buyer           User     @relation(fields: [buyerId], references: [id], name: "BuyerTransactions", onDelete: Cascade)
   sellerId        String
-  seller          User        @relation(fields: [sellerId], references: [id], name: "SellerTransactions")
-  cardId          String
-  card            Card        @relation(fields: [cardId], references: [id])
+  seller          User     @relation(fields: [sellerId], references: [id], name: "SellerTransactions", onDelete: Cascade)
   price           Float
-  paymentMethod   String
-  bankAccountId   String
-  bankAccount     BankAccount @relation(fields: [bankAccountId], references: [id])
-  paymentStatus   String      @default("pending")
-  transactionDate DateTime    @default(now())
-  proofOfTransfer String?
+  paymentMethod   PaymentMethod @default(PROMPTPAY)
+  paymentStatus   PaymentStatus @default(PENDING)
+  transactionDate DateTime @default(now())
+
+  @@index([auctionId])
 }
 
-model AdminAction {
-  id         String   @id @default(uuid())
-  adminId    String
-  admin      User     @relation(fields: [adminId], references: [id])
-  actionType String
-  targetId   String
-  timestamp  DateTime @default(now())
+model Payment {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], name: "UserPayments", onDelete: Cascade)
+  orderId         String?
+  order           Order?   @relation(fields: [orderId], references: [id], name: "OrderPayments", onDelete: Cascade)
+  amount          Float
+  paymentDate     DateTime @default(now())
+  paymentMethod   PaymentMethod
+  paymentStatus   PaymentStatus @default(PENDING)
+  proofOfTransfer String?
+  qrCodeUrl       String?
+  status          PaymentStatus @default(PENDING)
+  items           PaymentItem[]
+
+  @@index([userId])
+  @@index([orderId])
+}
+
+model PaymentItem {
+  id        String   @id @default(uuid())
+  paymentId String
+  payment   Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  name      String
+  imageUrl  String
+  quantity  Int
 }

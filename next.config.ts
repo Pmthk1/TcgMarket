@@ -10,6 +10,10 @@ const nextConfig = {
         protocol: "https",
         hostname: "xyz.supabase.co", // เปลี่ยนเป็นโดเมนของ Supabase ของคุณ
       },
+      {
+        protocol: "https",
+        hostname: "promptpay.io", // ✅ เพิ่ม PromptPay
+      },
     ],
   },
 };
