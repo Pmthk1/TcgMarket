@@ -117,7 +117,7 @@ export default function LiveAuctionsPage() {
                   className="bg-orange-400 text-white p-2 rounded mt-3 w-full hover:bg-orange-500 transition"
                   onClick={() => router.push(`/auctions/${auction.id}`)}
                 >
-                  ⚡ เข้าร่วมประมูล
+                  เข้าร่วมประมูล
                 </button>
               </div>
             );

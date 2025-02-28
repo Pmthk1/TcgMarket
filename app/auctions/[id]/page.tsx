@@ -27,6 +27,7 @@ export default function AuctionDetailPage() {
   const [isBidOpen, setIsBidOpen] = useState(false);
   const [bidAmount, setBidAmount] = useState("");
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
     if (!id) {
@@ -109,19 +110,22 @@ export default function AuctionDetailPage() {
     }
   };
 
-  if (loading)
-    return <p className="text-center text-gray-500">กำลังโหลดข้อมูล...</p>;
-  if (error)
-    return <p className="text-center text-red-500">ข้อผิดพลาด: {error}</p>;
-  if (!auction)
-    return <p className="text-center text-gray-500">ไม่พบข้อมูลการประมูล</p>;
+  const handleImageError = () => {
+    setImageError(true);
+  };
 
-  const imageUrl = auction.card?.imageUrl || "/images/fallback.png";
+  if (loading) return <p className="text-center text-gray-500">กำลังโหลดข้อมูล...</p>;
+  if (error) return <p className="text-center text-red-500">ข้อผิดพลาด: {error}</p>;
+  if (!auction) return <p className="text-center text-gray-500">ไม่พบข้อมูลการประมูล</p>;
+
+  // กำหนด imageUrl และใช้ const ตามที่ ESLint แนะนำ
+  const imageUrl = imageError ? 
+    "/uploads/marco.png" : 
+    (auction.card?.imageUrl || "/uploads/marco.png");
 
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-2xl font-bold">{auction.card?.name || "ไม่ทราบชื่อสินค้า"}</h1>
-
       {timeLeft !== null && timeLeft > 0 ? (
         <CountdownTimer endTime={auction.endTime!} />
       ) : (
@@ -129,33 +133,27 @@ export default function AuctionDetailPage() {
       )}
 
       <div className="flex flex-col md:flex-row gap-4">
-        <Image
-          src={imageUrl}
-          alt={auction.card?.name || "ไม่มีชื่อสินค้า"}
-          width={300}
-          height={400}
-          className="rounded-lg mx-auto md:mx-0"
-          unoptimized
-        />
+        <div className="relative w-[300px] h-[400px] rounded-lg mx-auto md:mx-0 bg-gray-100">
+          <Image
+            src={imageUrl}
+            alt={auction.card?.name || "ไม่มีชื่อสินค้า"}
+            fill
+            className="rounded-lg object-contain"
+            unoptimized
+            onError={handleImageError}
+          />
+        </div>
         <div>
-          <p className="text-lg text-gray-500">
-            💰 ราคาเริ่มต้น: {auction.startPrice?.toLocaleString()} บาท
-          </p>
-          <p className="text-lg font-bold text-green-500">
-            🔥 ราคาปัจจุบัน: {auction.currentPrice?.toLocaleString()} บาท
-          </p>
+          <p className="text-lg text-gray-500">💰 ราคาเริ่มต้น: {auction.startPrice?.toLocaleString()} บาท</p>
+          <p className="text-lg font-bold text-green-500">🔥 ราคาปัจจุบัน: {auction.currentPrice?.toLocaleString()} บาท</p>
           {timeLeft !== null && timeLeft > 0 && (
-            <Button
-              onClick={() => setIsBidOpen(true)}
-              className="bg-orange-500 hover:bg-orange-600 mt-4"
-            >
+            <Button onClick={() => setIsBidOpen(true)} className="bg-orange-500 hover:bg-orange-600 mt-4">
               เสนอราคา
             </Button>
           )}
         </div>
       </div>
 
-      {/* ✅ ใช้ Dialog ที่ปรับปรุงแล้ว */}
       <Dialog open={isBidOpen} onOpenChange={setIsBidOpen}>
         <DialogContent title="เสนอราคา">
           <Input
@@ -166,13 +164,8 @@ export default function AuctionDetailPage() {
             className="mb-2"
           />
           <DialogFooter>
-            <Button onClick={() => setIsBidOpen(false)} variant="outline">
-              ยกเลิก
-            </Button>
-            <Button
-              onClick={placeBid}
-              className="bg-orange-500 hover:bg-orange-600"
-            >
+            <Button onClick={() => setIsBidOpen(false)} variant="outline">ยกเลิก</Button>
+            <Button onClick={placeBid} className="bg-orange-500 hover:bg-orange-600">
               ยืนยันการเสนอราคา
             </Button>
           </DialogFooter>
