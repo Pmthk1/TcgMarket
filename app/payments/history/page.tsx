@@ -8,7 +8,7 @@ interface PaymentItem {
   amount: number;
   paymentMethod: string;
   paymentStatus: string;
-  items: { name: string; imageUrl: string; quantity: number }[];
+  items: { id: string; name: string; imageUrl: string; quantity: number }[];
 }
 
 const PaymentHistory = ({ userId }: { userId: string }) => {
@@ -19,30 +19,20 @@ const PaymentHistory = ({ userId }: { userId: string }) => {
     const fetchHistory = async () => {
       try {
         const res = await fetch(`/api/payments/history?userId=${userId}`);
-  
-        if (!res.ok) {
-          // 🛑 ถ้า API ส่งสถานะ error ให้โยน error ออกไป
-          throw new Error(`HTTP Error: ${res.status}`);
-        }
-  
-        // ✅ ตรวจสอบว่า response เป็น JSON จริง ๆ
-        const contentType = res.headers.get("content-type");
-        if (!contentType || !contentType.includes("application/json")) {
-          throw new Error("❌ Response is not JSON");
-        }
-  
+
+        if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+
         const data = await res.json();
         setHistory(data);
       } catch (error) {
-        console.error("❌ Error fetching payment history:", error);
+        console.error("Error fetching payment history:", error);
       } finally {
         setIsLoading(false);
       }
     };
-  
+
     fetchHistory();
   }, [userId]);
-  
 
   return (
     <div className="min-h-screen p-5 bg-gray-50">
@@ -53,38 +43,29 @@ const PaymentHistory = ({ userId }: { userId: string }) => {
       ) : history.length === 0 ? (
         <p className="text-gray-500">ไม่มีประวัติการชำระเงิน</p>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-6">
           {history.map((payment) => (
-            <div key={payment.id} className="bg-white p-4 shadow-md rounded-lg">
-              <p className="text-lg font-semibold text-gray-900">
-                💰 จำนวนเงิน: ฿{payment.amount}
-              </p>
-              <p className="text-gray-700">📌 ช่องทาง: {payment.paymentMethod}</p>
-              <p
-                className={`font-semibold ${
-                  payment.paymentStatus === "SUCCESS" ? "text-green-600" : "text-red-600"
-                }`}
-              >
-                ⚡ สถานะ: {payment.paymentStatus}
-              </p>
-
-              {/* แสดงสินค้าในคำสั่งซื้อ */}
-              <div className="mt-3 space-y-2">
-                {payment.items.map((item, index) => (
-                  <div key={index} className="flex items-center gap-3 border p-2 rounded-lg">
-                    <Image
-                      src={item.imageUrl}
-                      alt={item.name}
-                      width={60}
-                      height={60}
-                      className="rounded-md"
-                    />
+            <div key={payment.id} className="bg-white p-5 shadow-md rounded-lg">
+              {/* 🔹 แสดงรายการสินค้าก่อน */}
+              <div className="space-y-3">
+                {payment.items.map((item) => (
+                  <div key={item.id} className="flex items-center gap-4">
+                    <Image src={item.imageUrl} alt={item.name} width={60} height={60} className="rounded-md" />
                     <div>
-                      <p className="font-semibold">{item.name}</p>
-                      <p className="text-sm text-gray-600">จำนวน: {item.quantity}</p>
+                      <p className="text-gray-900 font-medium">📌 ชื่อ: {item.name}</p>
+                      <p className="text-gray-600">📌 จำนวน: {item.quantity} ชิ้น</p>
                     </div>
                   </div>
                 ))}
+              </div>
+
+              {/* 🔹 ข้อมูลการชำระเงินอยู่ด้านล่าง */}
+              <div className="mt-4 border-t pt-3">
+                <p className="text-lg font-semibold text-gray-900">💰 ฿{payment.amount}</p>
+                <p className="text-gray-700">📌 ช่องทาง: {payment.paymentMethod}</p>
+                <p className={`font-semibold ${payment.paymentStatus === "COMPLETED" ? "text-green-600" : "text-red-600"}`}>
+                  ⚡ สถานะ: {payment.paymentStatus === "COMPLETED" ? "✅ COMPLETED" : "❌ FAILED"}
+                </p>
               </div>
             </div>
           ))}

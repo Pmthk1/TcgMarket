@@ -15,6 +15,7 @@ const nextConfig = {
         hostname: "promptpay.io", // ✅ เพิ่ม PromptPay
       },
     ],
+    domains: ["localhost"], // ✅ อนุญาตให้โหลดภาพจาก localhost
   },
 };
 

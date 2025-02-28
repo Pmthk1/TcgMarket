@@ -1,15 +1,21 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
-// Handler สำหรับ HTTP GET (ดึงข้อมูลการประมูล)
-export async function GET(req: Request, context: { params?: { id?: string } }) {
-  // ใช้ params อย่างถูกต้อง โดยนำ id ออกมาทันที
-  const id = context.params?.id;
-  console.log("🔍 Fetching auction with ID:", id);
+// ฟังก์ชันช่วยสร้าง URL รูปภาพ
+const getImageUrl = (imagePath?: string) => {
+  if (!imagePath) return null;
+  if (imagePath.startsWith("http")) return imagePath;
+  return `/uploads/${imagePath}`;
+};
 
-  if (!id) return NextResponse.json({ error: "Auction ID is required" }, { status: 400 });
-
+// 🟢 GET - ดึงข้อมูลการประมูล
+export async function GET(req: NextRequest, context: { params?: { id?: string } }) {
   try {
+    const id = context.params?.id;
+    if (!id) return NextResponse.json({ error: "Auction ID is required" }, { status: 400 });
+
+    console.log("🔍 Fetching auction with ID:", id);
+
     const auction = await prisma.auction.findUnique({
       where: { id },
       include: { card: true },
@@ -17,43 +23,43 @@ export async function GET(req: Request, context: { params?: { id?: string } }) {
 
     if (!auction) return NextResponse.json({ error: "Auction not found" }, { status: 404 });
 
-    return NextResponse.json(auction);
-  } catch (error: unknown) {
+    return NextResponse.json({
+      ...auction,
+      card: auction.card
+        ? { ...auction.card, imageUrl: getImageUrl(auction.card?.imageUrl) }
+        : null,
+    });
+  } catch (error) {
     console.error("🚨 Error fetching auction details:", error);
-    
     return NextResponse.json({ error: "Failed to fetch auction details" }, { status: 500 });
   }
 }
 
-// Handler สำหรับ HTTP DELETE (ลบการประมูล)
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
-  const id = params.id;
-  console.log("🗑 Deleting auction with ID:", id);
-
-  if (!id) return NextResponse.json({ error: "Auction ID is required" }, { status: 400 });
-
+// 🗑 DELETE - ลบการประมูล
+export async function DELETE(req: NextRequest, context: { params?: { id?: string } }) {
   try {
+    const id = context.params?.id;
+    if (!id) return NextResponse.json({ error: "Auction ID is required" }, { status: 400 });
+
+    console.log("🗑 Deleting auction with ID:", id);
+
     await prisma.auction.delete({ where: { id } });
+
     return NextResponse.json({ message: "Auction deleted successfully" });
-  } catch (error: unknown) {
+  } catch (error) {
     console.error("🚨 Error deleting auction:", error);
-
-    if (error instanceof Error && "code" in error && error.code === "P2025") {
-      return NextResponse.json({ error: "Auction not found" }, { status: 404 });
-    }
-
     return NextResponse.json({ error: "Failed to delete auction" }, { status: 500 });
   }
 }
 
-// Handler สำหรับ HTTP PATCH (อัปเดตราคาประมูล)
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const id = params.id;
-  console.log("⚡ Updating bid for auction ID:", id);
-
-  if (!id) return NextResponse.json({ error: "Auction ID is required" }, { status: 400 });
-
+// ⚡ PATCH - อัปเดตราคาประมูล
+export async function PATCH(req: NextRequest, context: { params?: { id?: string } }) {
   try {
+    const id = context.params?.id;
+    if (!id) return NextResponse.json({ error: "Auction ID is required" }, { status: 400 });
+
+    console.log("⚡ Updating bid for auction ID:", id);
+
     const { bidAmount } = await req.json();
     if (!bidAmount || typeof bidAmount !== "number" || isNaN(bidAmount)) {
       return NextResponse.json({ error: "Invalid bid amount" }, { status: 400 });
@@ -72,13 +78,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     });
 
     return NextResponse.json(updatedAuction);
-  } catch (error: unknown) {
+  } catch (error) {
     console.error("🚨 Error updating bid:", error);
-
-    if (error instanceof Error && "code" in error && error.code === "P2025") {
-      return NextResponse.json({ error: "Auction not found" }, { status: 404 });
-    }
-
     return NextResponse.json({ error: "Failed to place bid" }, { status: 500 });
   }
 }

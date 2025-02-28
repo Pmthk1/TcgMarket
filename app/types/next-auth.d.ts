@@ -1,5 +1,5 @@
-import type { DefaultSession, DefaultUser } from "next-auth"; // ✅ เอา NextAuth ออก
-import type { JWT as DefaultJWT } from "next-auth/jwt"; // ✅ Import type เท่านั้น
+import type { DefaultSession, DefaultUser } from "next-auth";
+import type { JWT as DefaultJWT } from "next-auth/jwt";
 
 declare module "next-auth" {
   interface User extends DefaultUser {

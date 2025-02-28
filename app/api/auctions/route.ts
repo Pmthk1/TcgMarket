@@ -6,15 +6,25 @@ import path from "path";
 
 const uploadDir = path.join(process.cwd(), "public/uploads");
 
-// ตรวจสอบว่าโฟลเดอร์ `/public/uploads/` มีหรือยัง ถ้าไม่มีให้สร้าง
+// ตรวจสอบและสร้างโฟลเดอร์ `/public/uploads/` ถ้ายังไม่มี
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// ✅ GET: ดึงรายการประมูลทั้งหมด
+// ✅ GET: ดึงรายการประมูลทั้งหมด (รวมข้อมูลการ์ด)
 export async function GET() {
   try {
-    const auctions = await prisma.auction.findMany();
+    const auctions = await prisma.auction.findMany({
+      include: {
+        card: {
+          select: {
+            name: true,
+            imageUrl: true, // ✅ ดึงรูปภาพการ์ด
+          },
+        },
+      },
+    });
+
     return NextResponse.json(auctions, { status: 200 });
   } catch (error) {
     console.error("🚨 Error fetching auctions:", error);
@@ -22,63 +32,57 @@ export async function GET() {
   }
 }
 
-// ✅ POST: สร้างการประมูลใหม่
+// ✅ POST: สร้างการประมูลใหม่ พร้อมอัปโหลดรูปภาพ
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
 
     // 🛠 ดึงข้อมูลจาก formData
-    const cardId = formData.get("cardId") as string | null;
-    const description = formData.get("description") as string | null;
+    let cardId = formData.get("cardId")?.toString() || "";
+    const cardName = formData.get("cardName")?.toString() || "";
+    const description = formData.get("description")?.toString() || "";
+    const category = formData.get("category")?.toString() || "";
     const startPriceRaw = formData.get("startPrice");
     const startTimeRaw = formData.get("startTime");
     const endTimeRaw = formData.get("endTime");
     const image = formData.get("image") as File | null;
 
-    console.log("📩 Received Data:", { 
-      cardId, 
-      description, 
-      startPriceRaw, 
-      startTimeRaw, 
-      endTimeRaw, 
-      image 
-    });
-
     // 🛠 ตรวจสอบและแปลงค่าที่จำเป็น
-    const startPrice = startPriceRaw ? parseFloat(startPriceRaw as string) : NaN;
+    const startPrice = startPriceRaw ? Number(startPriceRaw) : NaN;
     const startTime = startTimeRaw ? new Date(startTimeRaw as string) : new Date("");
     const endTime = endTimeRaw ? new Date(endTimeRaw as string) : new Date("");
 
-    console.log("⏳ Processed Values:", { startPrice, startTime, endTime });
-
-    // 🛠 ตรวจสอบค่าที่จำเป็น
-    if (!cardId || isNaN(startPrice) || isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
-      console.log("❌ Missing or invalid required fields");
-      return NextResponse.json({ 
-        error: "Missing or invalid required fields", 
-        debug: { cardId, startPrice, startTime, endTime } 
-      }, { status: 400 });
+    // ตรวจสอบค่าที่จำเป็น
+    if (!cardName || !category || isNaN(startPrice) || isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
+      return NextResponse.json(
+        { error: "Missing or invalid required fields" },
+        { status: 400 }
+      );
     }
 
     if (endTime <= startTime) {
-      console.log("❌ End time must be after start time");
       return NextResponse.json({ error: "End time must be after start time" }, { status: 400 });
     }
 
-    // 🔹 ค้นหาการ์ดจากฐานข้อมูล
-    const card = await prisma.card.findUnique({ where: { id: cardId } });
-    console.log("🔍 Card Lookup Result:", card);
+    // 🔹 ค้นหาหรือสร้างการ์ด
+    let card = await prisma.card.findFirst({
+      where: { name: cardName },
+    });
 
     if (!card) {
-      console.log("❌ Card not found in database");
-      return NextResponse.json({ error: "Card not found" }, { status: 404 });
+      card = await prisma.card.create({
+        data: {
+          name: cardName,
+          imageUrl: "",
+          category,
+        },
+      });
     }
 
-    // ✅ บันทึกชื่อการ์ด
-    const cardName = card.name;
+    cardId = card.id;
 
     // 🔹 บันทึกไฟล์ภาพ
-    let imageUrl: string | null = null;
+    let imageUrl = "";
     if (image) {
       try {
         const bytes = await image.arrayBuffer();
@@ -87,9 +91,8 @@ export async function POST(req: Request) {
 
         await writeFile(filePath, buffer);
         imageUrl = `/uploads/${image.name}`;
-        console.log("✅ Image saved at:", imageUrl);
-      } catch (imgError) {
-        console.error("❌ Error saving image:", imgError);
+      } catch {
+        console.error("🚨 Image upload failed");
         return NextResponse.json({ error: "Image upload failed" }, { status: 500 });
       }
     }
@@ -98,8 +101,9 @@ export async function POST(req: Request) {
     const newAuction = await prisma.auction.create({
       data: {
         cardId,
-        cardName, // ✅ เพิ่ม cardName
+        cardName,
         description,
+        category,
         startPrice,
         currentPrice: startPrice,
         startTime,
@@ -107,11 +111,12 @@ export async function POST(req: Request) {
         status: "PENDING",
         imageUrl,
       },
+      include: {
+        card: true,
+      },
     });
 
-    console.log("✅ Auction Created:", newAuction);
     return NextResponse.json(newAuction, { status: 201 });
-
   } catch (error) {
     console.error("🚨 Error creating auction:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

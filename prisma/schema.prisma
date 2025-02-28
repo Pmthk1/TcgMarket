@@ -7,8 +7,149 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id                 String        @id @default(uuid())
+  clerkId            String        @unique
+  username           String        @unique
+  email              String        @unique
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  role               UserRole      @default(USER)
+  Auctions           Auction[]     @relation("HighestBidder")
+  Bids               Bid[]
+  Orders             Order[]
+  Payments           Payment[]     @relation("UserPayments")
+  TransactionsBuyer  Transaction[] @relation("BuyerTransactions")
+  TransactionsSeller Transaction[] @relation("SellerTransactions")
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  category    String
+  imageUrl    String
+  price       Float?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Card {
+  id          String    @id @default(uuid())
+  name        String
+  category    String
+  imageUrl    String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  description String?
+  auctions    Auction[] @relation("CardAuctions")
+}
+
+model Auction {
+  id              String        @id @default(uuid())
+  cardId          String
+  startPrice      Float
+  currentPrice    Float
+  highestBidderId String?
+  startTime       DateTime
+  endTime         DateTime
+  status          AuctionStatus @default(PENDING)
+  createdAt       DateTime      @default(now())
+  description     String?
+  imageUrl        String?
+  cardName        String
+  category        String?
+  card            Card          @relation("CardAuctions", fields: [cardId], references: [id], onDelete: Cascade)
+  highestBidder   User?         @relation("HighestBidder", fields: [highestBidderId], references: [id])
+  Bids            Bid[]
+  Transactions    Transaction[] @relation("AuctionTransactions")
+
+  @@index([cardId])
+}
+
+model Bid {
+  id        String   @id @default(uuid())
+  auctionId String
+  bidderId  String
+  amount    Float
+  bidTime   DateTime @default(now())
+  auction   Auction  @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  bidder    User     @relation(fields: [bidderId], references: [id], onDelete: Cascade)
+
+  @@index([auctionId])
+}
+
+model Order {
+  id            String        @id @default(uuid())
+  userId        String
+  totalAmount   Float
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  paymentMethod PaymentMethod @default(PROMPTPAY)
+  paymentStatus PaymentStatus @default(PENDING)
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items         OrderItem[]
+  Payments      Payment[]     @relation("OrderPayments")
+
+  @@index([userId])
+}
+
+model OrderItem {
+  id       String @id @default(uuid())
+  orderId  String
+  name     String
+  imageUrl String
+  quantity Int
+  order    Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model Transaction {
+  id              String        @id @default(uuid())
+  auctionId       String
+  buyerId         String
+  sellerId        String
+  price           Float
+  transactionDate DateTime      @default(now())
+  paymentMethod   PaymentMethod @default(PROMPTPAY)
+  paymentStatus   PaymentStatus @default(PENDING)
+  auction         Auction       @relation("AuctionTransactions", fields: [auctionId], references: [id], onDelete: Cascade)
+  buyer           User          @relation("BuyerTransactions", fields: [buyerId], references: [id], onDelete: Cascade)
+  seller          User          @relation("SellerTransactions", fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@index([auctionId])
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  userId          String
+  orderId         String?
+  amount          Float
+  paymentDate     DateTime      @default(now())
+  proofOfTransfer String?
+  qrCodeUrl       String?
+  paymentMethod   PaymentMethod
+  paymentStatus   PaymentStatus @default(PENDING)
+  order           Order?        @relation("OrderPayments", fields: [orderId], references: [id], onDelete: Cascade)
+  user            User          @relation("UserPayments", fields: [userId], references: [id], onDelete: Cascade)
+  items           PaymentItem[]
+
+  @@index([userId])
+  @@index([orderId])
+}
+
+model PaymentItem {
+  id        String  @id @default(uuid())
+  paymentId String
+  name      String
+  imageUrl  String
+  quantity  Int
+  orderId   String?
+  payment   Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+}
+
 enum AuctionStatus {
   PENDING
+  LIVE    // ✅ เพิ่มสถานะนี้
   ACTIVE
   CLOSED
   COMPLETED
@@ -31,133 +172,4 @@ enum PaymentStatus {
 enum UserRole {
   USER
   ADMIN
-}
-
-model User {
-  id                 String        @id @default(uuid())
-  clerkId            String        @unique
-  username           String        @unique
-  email              String        @unique
-  role               UserRole      @default(USER)
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
-  Bids               Bid[]
-  Orders             Order[]
-  TransactionsBuyer  Transaction[] @relation("BuyerTransactions")
-  TransactionsSeller Transaction[] @relation("SellerTransactions")
-  Auctions           Auction[]     @relation("HighestBidder")
-  Payments           Payment[]     @relation("UserPayments")
-}
-
-model Product {
-  id          String   @id @default(uuid())
-  name        String
-  description String?
-  category    String
-  imageUrl    String
-  price       Float?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-model Card {
-  id          String   @id @default(uuid())
-  name        String
-  description String?
-  category    String
-  imageUrl    String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  auctions    Auction[] @relation("CardAuctions")
-}
-
-model Auction {
-  id               String        @id @default(uuid())
-  cardId           String        
-  card             Card          @relation(fields: [cardId], references: [id], name: "CardAuctions", onDelete: Cascade)
-  cardName         String
-  startPrice       Float
-  currentPrice     Float
-  highestBidderId  String?       
-  highestBidder    User?         @relation(fields: [highestBidderId], references: [id], name: "HighestBidder", onDelete: SetNull)
-  startTime        DateTime
-  endTime          DateTime
-  status           AuctionStatus @default(PENDING)
-  createdAt        DateTime      @default(now())
-  Bids             Bid[] 
-  Transactions     Transaction[] @relation("AuctionTransactions")
-  description      String?
-  imageUrl         String?
-
-  @@index([cardId])
-}
-
-model Bid {
-  id        String   @id @default(uuid())
-  auctionId String
-  auction   Auction  @relation(fields: [auctionId], references: [id], onDelete: Cascade)
-  bidderId  String
-  bidder    User     @relation(fields: [bidderId], references: [id], onDelete: Cascade)
-  amount    Float
-  bidTime   DateTime @default(now())
-
-  @@index([auctionId])
-}
-
-model Order {
-  id              String   @id @default(uuid())
-  userId          String
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  totalAmount     Float
-  paymentMethod   PaymentMethod @default(PROMPTPAY)
-  paymentStatus   PaymentStatus @default(PENDING)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  Payments        Payment[] @relation("OrderPayments")
-
-  @@index([userId])
-}
-
-model Transaction {
-  id              String   @id @default(uuid())
-  auctionId       String
-  auction         Auction  @relation(fields: [auctionId], references: [id], name: "AuctionTransactions", onDelete: Cascade)
-  buyerId         String
-  buyer           User     @relation(fields: [buyerId], references: [id], name: "BuyerTransactions", onDelete: Cascade)
-  sellerId        String
-  seller          User     @relation(fields: [sellerId], references: [id], name: "SellerTransactions", onDelete: Cascade)
-  price           Float
-  paymentMethod   PaymentMethod @default(PROMPTPAY)
-  paymentStatus   PaymentStatus @default(PENDING)
-  transactionDate DateTime @default(now())
-
-  @@index([auctionId])
-}
-
-model Payment {
-  id              String   @id @default(uuid())
-  userId          String
-  user            User     @relation(fields: [userId], references: [id], name: "UserPayments", onDelete: Cascade)
-  orderId         String?
-  order           Order?   @relation(fields: [orderId], references: [id], name: "OrderPayments", onDelete: Cascade)
-  amount          Float
-  paymentDate     DateTime @default(now())
-  paymentMethod   PaymentMethod
-  paymentStatus   PaymentStatus @default(PENDING)
-  proofOfTransfer String?
-  qrCodeUrl       String?
-  status          PaymentStatus @default(PENDING)
-  items           PaymentItem[]
-
-  @@index([userId])
-  @@index([orderId])
-}
-
-model PaymentItem {
-  id        String   @id @default(uuid())
-  paymentId String
-  payment   Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
-  name      String
-  imageUrl  String
-  quantity  Int
 }

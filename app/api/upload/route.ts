@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_KEY!);
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,24 +12,25 @@ export async function POST(req: NextRequest) {
     const file = formData.get("file") as File;
 
     if (!file) {
-      return NextResponse.json({ message: "No file uploaded" }, { status: 400 });
+      return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
     }
 
-    // อ่านข้อมูลไฟล์เป็น Buffer
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    // กำหนดชื่อไฟล์แบบไม่ซ้ำ
+    const filePath = `auction-images/${Date.now()}-${file.name}`;
 
     // อัปโหลดไฟล์ไปยัง Supabase Storage
-    const filePath = `products/${Date.now()}_${file.name}`;
-    const { data, error } = await supabase.storage.from("products").upload(filePath, buffer, {
-      contentType: file.type,
-    });
+    const { data, error } = await supabase.storage
+      .from("auction-images")
+      .upload(filePath, await file.arrayBuffer(), { contentType: file.type });
 
     if (error) throw error;
 
-    const imageUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/products/${data.path}`;
-    return NextResponse.json({ url: imageUrl });
+    // สร้าง URL รูปภาพที่สามารถเข้าถึงได้
+    const imageUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/auction-images/${data.path}`;
+
+    return NextResponse.json({ imageUrl }, { status: 200 });
   } catch (error) {
-    return NextResponse.json({ message: "Upload failed", error }, { status: 500 });
+    console.error("🚨 Upload Error:", error);
+    return NextResponse.json({ error: "Failed to upload image" }, { status: 500 });
   }
 }

@@ -2,7 +2,6 @@ import NextAuth, { AuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import prisma from "@/lib/prisma";
 import type { JWT } from "next-auth/jwt"; // ✅ Import type ให้ TypeScript รู้จัก JWT
-import "@/types/next-auth"; // ✅ Import types ที่ขยายแล้ว
 
 export const authOptions: AuthOptions = {
   providers: [
@@ -43,7 +42,7 @@ export const authOptions: AuthOptions = {
         token.email = user.email ?? undefined;
         token.clerkId = user.clerkId ?? undefined;
       }
-      return token as JWT; // ✅ TypeScript จะรู้จัก JWT แล้ว
+      return token as JWT;
     },
     async session({ session, token }) {
       session.user = {
