@@ -53,6 +53,7 @@ model Auction {
   highestBidderId String?
   startTime       DateTime
   endTime         DateTime
+  isClosed        Boolean       @default(false) // ✅ เพิ่มฟิลด์นี้เพื่อปิดประมูล
   status          AuctionStatus @default(PENDING)
   createdAt       DateTime      @default(now())
   description     String?
@@ -149,7 +150,7 @@ model PaymentItem {
 
 enum AuctionStatus {
   PENDING
-  LIVE    // ✅ เพิ่มสถานะนี้
+  LIVE       // ✅ เพิ่มสถานะนี้
   ACTIVE
   CLOSED
   COMPLETED

@@ -1,5 +1,5 @@
-import prisma from "@/lib/prisma";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import prisma from "@/lib/prisma";  // ✅ ถูกต้อง
 import { writeFile } from "fs/promises";
 import fs from "fs";
 import path from "path";
@@ -109,6 +109,7 @@ export async function POST(req: Request) {
         startTime,
         endTime,
         status: "PENDING",
+        isClosed: false, // ✅ เริ่มต้นให้การประมูลยังไม่ถูกปิด
         imageUrl,
       },
       include: {
@@ -120,5 +121,22 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error("🚨 Error creating auction:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
+}
+
+// ✅ PUT: ปิดการประมูล (เปลี่ยน isClosed เป็น true)
+export async function PUT(req: NextRequest) {
+  try {
+    const { auctionId } = await req.json();
+
+    const auction = await prisma.auction.update({
+      where: { id: auctionId },
+      data: { isClosed: true },
+    });
+
+    return NextResponse.json({ success: true, auction });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Internal Server Error";
+    return NextResponse.json({ success: false, error: errorMessage }, { status: 500 });
   }
 }

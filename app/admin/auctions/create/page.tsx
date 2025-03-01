@@ -12,11 +12,16 @@ import Image from "next/image";
 export default function CreateAuction() {
   const router = useRouter();
 
-  const defaultEndTime = (() => {
+  // ตั้งค่าเวลาสิ้นสุดประมูลบนฝั่ง Client เท่านั้น
+  const [clientReady, setClientReady] = useState(false);
+  const [endTime, setEndTime] = useState("");
+
+  useEffect(() => {
+    setClientReady(true);
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
-    return tomorrow.toISOString().slice(0, 16);
-  })();
+    setEndTime(tomorrow.toISOString().slice(0, 16));
+  }, []);
 
   const [formData, setFormData] = useState({
     cardName: "",
@@ -24,16 +29,11 @@ export default function CreateAuction() {
     description: "",
     startPrice: "",
     image: null as File | null,
-    endTime: defaultEndTime,
   });
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [imageName, setImageName] = useState<string | null>(null);
   const [inputKey, setInputKey] = useState(0);
-
-  useEffect(() => {
-    setInputKey(Date.now());
-  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -71,7 +71,7 @@ export default function CreateAuction() {
     formDataToSend.append("description", formData.description);
     formDataToSend.append("startPrice", formData.startPrice);
     formDataToSend.append("startTime", new Date().toISOString());
-    formDataToSend.append("endTime", new Date(formData.endTime).toISOString());
+    formDataToSend.append("endTime", new Date(endTime).toISOString());
 
     if (formData.image) {
       formDataToSend.append("image", formData.image);
@@ -98,7 +98,7 @@ export default function CreateAuction() {
   return (
     <div className="bg-gray-100 min-h-screen p-6">
       <AdminHeader title="Create Auction" />
-      {/* ปุ่มย้อนกลับไปหน้ารายการประมูล */}
+      
       <Button onClick={() => router.push("/admin/auctions")} className="mb-4 bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700">
         Back to Auctions
       </Button>
@@ -106,17 +106,11 @@ export default function CreateAuction() {
       <form onSubmit={handleSubmit} className="max-w-xl mx-auto bg-white p-6 rounded-lg shadow-lg space-y-4">
         <div>
           <Label>Card Name</Label>
-          <Input type="text" name="cardName" value={formData.cardName} onChange={handleChange} required className="w-full border p-2 rounded-md" />
+          <Input type="text" name="cardName" value={formData.cardName} onChange={handleChange} required spellCheck={false} className="w-full border p-2 rounded-md" />
         </div>
         <div>
           <Label>Category</Label>
-          <select
-            name="category"
-            value={formData.category}
-            onChange={handleChange}
-            required
-            className="w-full border p-2 rounded-md"
-          >
+          <select name="category" value={formData.category} onChange={handleChange} required className="w-full border p-2 rounded-md">
             <option value="" disabled>-- Select Category --</option>
             <option value="pokemon">Pokémon</option>
             <option value="one_piece">One Piece</option>
@@ -124,7 +118,7 @@ export default function CreateAuction() {
         </div>
         <div>
           <Label>Description</Label>
-          <Textarea name="description" value={formData.description} onChange={handleChange} required className="w-full border p-2 rounded-md" />
+          <Textarea name="description" value={formData.description} onChange={handleChange} required spellCheck={false} className="w-full border p-2 rounded-md" />
         </div>
         <div>
           <Label>Starting Price (฿)</Label>
@@ -148,7 +142,11 @@ export default function CreateAuction() {
         </div>
         <div>
           <Label>Auction End Time</Label>
-          <Input type="datetime-local" name="endTime" value={formData.endTime} onChange={handleChange} required className="w-full border p-2 rounded-md" />
+          {clientReady ? (
+            <Input type="datetime-local" name="endTime" value={endTime} onChange={(e) => setEndTime(e.target.value)} required className="w-full border p-2 rounded-md" />
+          ) : (
+            <div className="w-full h-10 bg-gray-200 rounded-md animate-pulse" />
+          )}
         </div>
         <Button type="submit" className="w-full bg-green-600 text-white py-3 rounded-md text-lg hover:bg-green-600">Create Auction</Button>
       </form>

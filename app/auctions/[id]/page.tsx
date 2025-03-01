@@ -14,6 +14,7 @@ type Auction = {
   startPrice?: number;
   currentPrice?: number;
   endTime?: string;
+  isClosed?: boolean; // ✅ เพิ่มตัวแปร isClosed
 };
 
 export default function AuctionDetailPage() {
@@ -49,27 +50,19 @@ export default function AuctionDetailPage() {
 
         const data: Auction = await res.json();
         console.log("ข้อมูลประมูลที่ได้รับ:", data);
-        console.log("URL รูปภาพ:", data.card?.imageUrl);
         
-        // ถ้าไม่มี imageUrl แต่มีชื่อการ์ด ให้ลองค้นหารูปภาพจากชื่อการ์ด
         if (!data.card?.imageUrl && data.card?.name) {
           try {
             const imageRes = await fetch(`/api/find-images?cardName=${encodeURIComponent(data.card.name)}`);
             if (imageRes.ok) {
               const imageData = await imageRes.json();
-              if (imageData.imageUrl) {
-                console.log("พบรูปภาพจากชื่อการ์ด:", imageData.imageUrl);
-                setFallbackImage(imageData.imageUrl);
-              } else {
-                // เพิ่มกรณีไม่พบรูปภาพ ลองใช้ชื่อไฟล์โดยตรง
-                setFallbackImage(`/uploads/${data.card.name.toLowerCase().replace(/\s+/g, '-')}.png?t=${Date.now()}`);
-              }
+              setFallbackImage(imageData.imageUrl || `/uploads/${data.card.name.toLowerCase().replace(/\s+/g, '-')}.png?t=${Date.now()}`);
             }
           } catch (imgErr) {
             console.error("ไม่สามารถค้นหารูปภาพจากชื่อการ์ดได้:", imgErr);
           }
         }
-        
+
         setAuction(data);
         setError("");
 
@@ -89,9 +82,7 @@ export default function AuctionDetailPage() {
           return () => clearInterval(interval);
         }
       } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "ไม่สามารถโหลดข้อมูลการประมูลได้"
-        );
+        setError(err instanceof Error ? err.message : "ไม่สามารถโหลดข้อมูลการประมูลได้");
       } finally {
         setLoading(false);
       }
@@ -101,15 +92,18 @@ export default function AuctionDetailPage() {
   }, [id, router]);
 
   const placeBid = async () => {
-    if (!auction || !auction.startPrice) return;
-
-    const bidValue = Number(bidAmount);
-    const minBid = auction.currentPrice ?? auction.startPrice;
-
-    if (isNaN(bidValue) || bidValue <= minBid) {
-      alert(`กรุณาเสนอราคามากกว่าราคาปัจจุบัน (${minBid.toLocaleString()} บาท)`);
+    if (!auction || auction.isClosed) {
+      alert("🚫 การประมูลนี้ปิดแล้ว ไม่สามารถเสนอราคาได้");
       return;
     }
+
+    const bidValue = Number(bidAmount);
+    const minBid = (auction.currentPrice ?? auction.startPrice) ?? 0;
+
+if (isNaN(bidValue) || bidValue <= minBid) {
+  alert(`กรุณาเสนอราคามากกว่าราคาปัจจุบัน (${minBid.toLocaleString()} บาท)`);
+  return;
+}
 
     try {
       const res = await fetch(`/api/auctions/${id}`, {
@@ -134,7 +128,6 @@ export default function AuctionDetailPage() {
   };
 
   const handleImageError = () => {
-    console.error("เกิดข้อผิดพลาดในการโหลดรูปภาพจาก URL:", auction?.card?.imageUrl);
     setImageError(true);
   };
 
@@ -142,10 +135,7 @@ export default function AuctionDetailPage() {
   if (error) return <p className="text-center text-red-500">ข้อผิดพลาด: {error}</p>;
   if (!auction) return <p className="text-center text-gray-500">ไม่พบข้อมูลการประมูล</p>;
 
-  // ใช้ URL รูปภาพจากการ์ดหรือรูปภาพสำรองที่ค้นหาจากชื่อการ์ด
-  const imageUrl = !imageError && auction.card?.imageUrl 
-    ? auction.card.imageUrl 
-    : (imageError && fallbackImage ? fallbackImage : fallbackImage);
+  const imageUrl = !imageError && auction.card?.imageUrl ? auction.card.imageUrl : fallbackImage;
 
   return (
     <div className="container mx-auto p-4">
@@ -169,20 +159,17 @@ export default function AuctionDetailPage() {
             />
           </div>
         )}
-        {!imageUrl && auction.card?.name && (
-          <div className="w-[300px] h-[400px] rounded-lg mx-auto md:mx-0 bg-gray-100 flex items-center justify-center">
-            <p className="text-gray-500 p-4 text-center">ไม่พบรูปภาพสำหรับ {auction.card.name}</p>
-          </div>
-        )}
         <div>
           <p className="text-lg text-gray-500">💰 ราคาเริ่มต้น: {auction.startPrice?.toLocaleString()} บาท</p>
           <p className="text-lg font-bold text-green-500">🔥 ราคาปัจจุบัน: {auction.currentPrice?.toLocaleString()} บาท</p>
-          
+
           <Button onClick={() => router.push("/auctions/live")} className="bg-blue-500 hover:bg-blue-600 mt-4">
             กลับไปหน้าหลักประมูล
           </Button>
 
-          {timeLeft !== null && timeLeft > 0 && (
+          {auction.isClosed ? (
+            <p className="text-red-600 text-lg font-bold">🚫 การประมูลนี้ปิดแล้ว</p>
+          ) : (
             <Button onClick={() => setIsBidOpen(true)} className="bg-orange-500 hover:bg-orange-600 mt-4">
               เสนอราคา
             </Button>
