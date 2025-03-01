@@ -1,24 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import path from "path";
-import fs from "fs";
-
-// ฟังก์ชันตรวจสอบว่าไฟล์มีอยู่จริงหรือไม่
-const fileExists = (filePath: string): boolean => {
-  try {
-    // ตรวจสอบเฉพาะในโหมด production
-    if (process.env.NODE_ENV === 'production') {
-      return true; // ในโหมด production, เราไม่สามารถใช้ fs ได้ จึงต้องสมมติว่าไฟล์มีอยู่
-    }
-    
-    // ในโหมด development, เราตรวจสอบไฟล์ในโฟลเดอร์ public
-    const publicPath = path.join(process.cwd(), 'public', filePath);
-    return fs.existsSync(publicPath);
-  } catch (error) {
-    console.error("Error checking file existence:", error);
-    return false;
-  }
-};
 
 // ฟังก์ชันช่วยสร้าง URL รูปภาพ
 const getImageUrl = (imagePath?: string) => {
@@ -26,20 +7,17 @@ const getImageUrl = (imagePath?: string) => {
   if (imagePath.startsWith("http")) return imagePath;
   
   // ไม่ต้องเพิ่ม /uploads/ อีกถ้ามีอยู่แล้ว
-  const relativePath = imagePath.startsWith("/") ? imagePath : `/${imagePath}`;
-  
-  // ตรวจสอบว่าควรจะใช้เป็น marco.png แทนหรือไม่
-  if (!fileExists(relativePath)) {
-    return "/uploads/marco.png";
-  }
-  
-  return relativePath;
+  return imagePath.startsWith("/") ? imagePath : `/uploads/${imagePath}`;
 };
 
 // 🟢 GET - ดึงข้อมูลการประมูล
-export async function GET(req: NextRequest, context: { params?: { id?: string } }) {
+export async function GET(req: NextRequest) {
   try {
-    const id = context.params?.id;
+    // Extract the ID from the URL path instead of using params
+    const url = new URL(req.url);
+    const pathParts = url.pathname.split('/');
+    const id = pathParts[pathParts.length - 1];
+    
     if (!id) return NextResponse.json({ error: "Auction ID is required" }, { status: 400 });
 
     console.log("🔍 Fetching auction with ID:", id);
@@ -57,7 +35,7 @@ export async function GET(req: NextRequest, context: { params?: { id?: string } 
       card: auction.card 
         ? { 
             ...auction.card, 
-            imageUrl: auction.card.imageUrl ? getImageUrl(auction.card.imageUrl) : "/uploads/marco.png"
+            imageUrl: auction.card.imageUrl ? getImageUrl(auction.card.imageUrl) : null
           }
         : null,
     };
@@ -70,9 +48,13 @@ export async function GET(req: NextRequest, context: { params?: { id?: string } 
 }
 
 // ⚡ PATCH - อัปเดตราคาประมูล
-export async function PATCH(req: NextRequest, context: { params?: { id?: string } }) {
+export async function PATCH(req: NextRequest) {
   try {
-    const id = context.params?.id;
+    // Extract the ID from the URL path instead of using params
+    const url = new URL(req.url);
+    const pathParts = url.pathname.split('/');
+    const id = pathParts[pathParts.length - 1];
+    
     if (!id) return NextResponse.json({ error: "Auction ID is required" }, { status: 400 });
 
     console.log("⚡ Updating bid for auction ID:", id);
@@ -105,7 +87,7 @@ export async function PATCH(req: NextRequest, context: { params?: { id?: string 
       card: updatedAuction.card 
         ? { 
             ...updatedAuction.card, 
-            imageUrl: updatedAuction.card.imageUrl ? getImageUrl(updatedAuction.card.imageUrl) : "/uploads/marco.png"
+            imageUrl: updatedAuction.card.imageUrl ? getImageUrl(updatedAuction.card.imageUrl) : null
           }
         : null,
     };
@@ -118,9 +100,13 @@ export async function PATCH(req: NextRequest, context: { params?: { id?: string 
 }
 
 // 🗑 DELETE - ลบการประมูล
-export async function DELETE(req: NextRequest, context: { params?: { id?: string } }) {
+export async function DELETE(req: NextRequest) {
   try {
-    const id = context.params?.id;
+    // Extract the ID from the URL path instead of using params
+    const url = new URL(req.url);
+    const pathParts = url.pathname.split('/');
+    const id = pathParts[pathParts.length - 1];
+    
     if (!id) return NextResponse.json({ error: "Auction ID is required" }, { status: 400 });
 
     console.log("🗑 Deleting auction with ID:", id);

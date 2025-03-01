@@ -8,14 +8,17 @@ const nextConfig = {
       },
       {
         protocol: "https",
-        hostname: "xyz.supabase.co", // เปลี่ยนเป็นโดเมนของ Supabase ของคุณ
+        hostname: "your-supabase-project.supabase.co", // 🔹 แก้เป็นโดเมนของ Supabase ของคุณ
       },
       {
         protocol: "https",
-        hostname: "promptpay.io", // ✅ เพิ่ม PromptPay
+        hostname: "promptpay.io",
+      },
+      {
+        protocol: "http",
+        hostname: "localhost",
       },
     ],
-    domains: ["localhost"], // ✅ อนุญาตให้โหลดภาพจาก localhost
   },
 };
 
