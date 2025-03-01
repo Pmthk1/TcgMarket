@@ -1,47 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
-// ฟังก์ชันช่วยสร้าง URL รูปภาพ
 const getImageUrl = (imagePath?: string) => {
   if (!imagePath) return null;
   if (imagePath.startsWith("http")) return imagePath;
-  
-  // ไม่ต้องเพิ่ม /uploads/ อีกถ้ามีอยู่แล้ว
-  const path = imagePath.startsWith("/") 
-    ? imagePath 
-    : (imagePath.startsWith("uploads/") 
-      ? `/${imagePath}` 
-      : `/uploads/${imagePath}`);
-  
-  // เพิ่มแสตมป์เวลาเพื่อป้องกันการแคช
+  const path = imagePath.startsWith("/")
+    ? imagePath
+    : imagePath.startsWith("uploads/")
+    ? `/${imagePath}`
+    : `/uploads/${imagePath}`;
   return `${path}?t=${Date.now()}`;
 };
 
-// 🟢 GET - ดึงข้อมูลการประมูล
 export async function GET(req: NextRequest) {
   try {
-    const url = new URL(req.url);
-    const pathParts = url.pathname.split('/');
-    const id = pathParts[pathParts.length - 1];
-    
+    const id = req.nextUrl.pathname.split("/").pop();
     if (!id) return NextResponse.json({ error: "Auction ID is required" }, { status: 400 });
 
     console.log("🔍 Fetching auction with ID:", id);
-
-    const auction = await prisma.auction.findUnique({
-      where: { id },
-      include: { card: true },
-    });
+    const auction = await prisma.auction.findUnique({ where: { id }, include: { card: true } });
 
     if (!auction) return NextResponse.json({ error: "Auction not found" }, { status: 404 });
 
     const response = {
       ...auction,
-      card: auction.card 
-        ? { 
-            ...auction.card, 
-            imageUrl: auction.card.imageUrl ? getImageUrl(auction.card.imageUrl) : null
-          }
+      card: auction.card
+        ? { ...auction.card, imageUrl: auction.card.imageUrl ? getImageUrl(auction.card.imageUrl) : null }
         : null,
     };
 
@@ -52,72 +36,83 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// ⚡ PATCH - อัปเดตราคาประมูล
 export async function PATCH(req: NextRequest) {
   try {
-    const url = new URL(req.url);
-    const pathParts = url.pathname.split('/');
-    const id = pathParts[pathParts.length - 1];
-    
+    const id = req.nextUrl.pathname.split("/").pop();
     if (!id) return NextResponse.json({ error: "Auction ID is required" }, { status: 400 });
 
-    console.log("⚡ Updating bid for auction ID:", id);
+    console.log("⚡ Updating auction ID:", id);
+    const { bidAmount, endTime } = await req.json();
 
-    const { bidAmount } = await req.json();
-    if (!bidAmount || typeof bidAmount !== "number" || isNaN(bidAmount)) {
-      return NextResponse.json({ error: "Invalid bid amount" }, { status: 400 });
-    }
-
-    const auction = await prisma.auction.findUnique({ 
-      where: { id },
-      include: { card: true }
-    });
-    
+    const auction = await prisma.auction.findUnique({ where: { id }, include: { card: true } });
     if (!auction) return NextResponse.json({ error: "Auction not found" }, { status: 404 });
 
-    if (bidAmount <= auction.currentPrice) {
-      return NextResponse.json({ error: "Bid amount must be higher than current price" }, { status: 400 });
+    const updateData: Partial<{ currentPrice: number; endTime: Date }> = {};
+
+    if (bidAmount !== undefined) {
+      if (typeof bidAmount !== "number" || isNaN(bidAmount) || bidAmount <= auction.currentPrice) {
+        return NextResponse.json({ error: "Invalid bid amount" }, { status: 400 });
+      }
+      updateData.currentPrice = bidAmount;
+    }
+
+    if (endTime) {
+      updateData.endTime = new Date(endTime);
     }
 
     const updatedAuction = await prisma.auction.update({
       where: { id },
-      data: { currentPrice: bidAmount },
-      include: { card: true }
+      data: updateData,
+      include: { card: true },
     });
 
     const response = {
       ...updatedAuction,
-      card: updatedAuction.card 
-        ? { 
-            ...updatedAuction.card, 
-            imageUrl: updatedAuction.card.imageUrl ? getImageUrl(updatedAuction.card.imageUrl) : null
-          }
+      card: updatedAuction.card
+        ? { ...updatedAuction.card, imageUrl: updatedAuction.card.imageUrl ? getImageUrl(updatedAuction.card.imageUrl) : null }
         : null,
     };
 
     return NextResponse.json(response);
   } catch (error) {
-    console.error("🚨 Error updating bid:", error);
-    return NextResponse.json({ error: "Failed to place bid" }, { status: 500 });
+    console.error("🚨 Error updating auction:", error);
+    return NextResponse.json({ error: "Failed to update auction" }, { status: 500 });
   }
 }
 
-// 🗑 DELETE - ลบการประมูล
 export async function DELETE(req: NextRequest) {
   try {
-    const url = new URL(req.url);
-    const pathParts = url.pathname.split('/');
-    const id = pathParts[pathParts.length - 1];
-    
+    const id = req.nextUrl.pathname.split("/").pop();
     if (!id) return NextResponse.json({ error: "Auction ID is required" }, { status: 400 });
 
     console.log("🗑 Deleting auction with ID:", id);
-
     await prisma.auction.delete({ where: { id } });
 
     return NextResponse.json({ message: "Auction deleted successfully" });
   } catch (error) {
     console.error("🚨 Error deleting auction:", error);
     return NextResponse.json({ error: "Failed to delete auction" }, { status: 500 });
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const id = req.nextUrl.pathname.split("/").pop();
+    if (!id) return NextResponse.json({ error: "Auction ID is required" }, { status: 400 });
+
+    console.log("🔴 Closing auction with ID:", id);
+    const auction = await prisma.auction.findUnique({ where: { id } });
+
+    if (!auction) return NextResponse.json({ error: "Auction not found" }, { status: 404 });
+
+    const updatedAuction = await prisma.auction.update({
+      where: { id },
+      data: { status: "CLOSED" },
+    });
+
+    return NextResponse.json({ message: "Auction closed successfully", auction: updatedAuction });
+  } catch (error) {
+    console.error("🚨 Error closing auction:", error);
+    return NextResponse.json({ error: "Failed to close auction" }, { status: 500 });
   }
 }

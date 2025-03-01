@@ -98,6 +98,11 @@ export default function CreateAuction() {
   return (
     <div className="bg-gray-100 min-h-screen p-6">
       <AdminHeader title="Create Auction" />
+      {/* ปุ่มย้อนกลับไปหน้ารายการประมูล */}
+      <Button onClick={() => router.push("/admin/auctions")} className="mb-4 bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700">
+        Back to Auctions
+      </Button>
+      
       <form onSubmit={handleSubmit} className="max-w-xl mx-auto bg-white p-6 rounded-lg shadow-lg space-y-4">
         <div>
           <Label>Card Name</Label>
