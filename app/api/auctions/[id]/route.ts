@@ -7,13 +7,19 @@ const getImageUrl = (imagePath?: string) => {
   if (imagePath.startsWith("http")) return imagePath;
   
   // ไม่ต้องเพิ่ม /uploads/ อีกถ้ามีอยู่แล้ว
-  return imagePath.startsWith("/") ? imagePath : `/uploads/${imagePath}`;
+  const path = imagePath.startsWith("/") 
+    ? imagePath 
+    : (imagePath.startsWith("uploads/") 
+      ? `/${imagePath}` 
+      : `/uploads/${imagePath}`);
+  
+  // เพิ่มแสตมป์เวลาเพื่อป้องกันการแคช
+  return `${path}?t=${Date.now()}`;
 };
 
 // 🟢 GET - ดึงข้อมูลการประมูล
 export async function GET(req: NextRequest) {
   try {
-    // Extract the ID from the URL path instead of using params
     const url = new URL(req.url);
     const pathParts = url.pathname.split('/');
     const id = pathParts[pathParts.length - 1];
@@ -29,7 +35,6 @@ export async function GET(req: NextRequest) {
 
     if (!auction) return NextResponse.json({ error: "Auction not found" }, { status: 404 });
 
-    // สร้าง response object ที่มี imageUrl ที่ถูกต้อง
     const response = {
       ...auction,
       card: auction.card 
@@ -50,7 +55,6 @@ export async function GET(req: NextRequest) {
 // ⚡ PATCH - อัปเดตราคาประมูล
 export async function PATCH(req: NextRequest) {
   try {
-    // Extract the ID from the URL path instead of using params
     const url = new URL(req.url);
     const pathParts = url.pathname.split('/');
     const id = pathParts[pathParts.length - 1];
@@ -81,7 +85,6 @@ export async function PATCH(req: NextRequest) {
       include: { card: true }
     });
 
-    // สร้าง response object ที่มี imageUrl ที่ถูกต้อง
     const response = {
       ...updatedAuction,
       card: updatedAuction.card 
@@ -102,7 +105,6 @@ export async function PATCH(req: NextRequest) {
 // 🗑 DELETE - ลบการประมูล
 export async function DELETE(req: NextRequest) {
   try {
-    // Extract the ID from the URL path instead of using params
     const url = new URL(req.url);
     const pathParts = url.pathname.split('/');
     const id = pathParts[pathParts.length - 1];

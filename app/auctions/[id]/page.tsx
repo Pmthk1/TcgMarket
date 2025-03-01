@@ -28,6 +28,7 @@ export default function AuctionDetailPage() {
   const [bidAmount, setBidAmount] = useState("");
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [imageError, setImageError] = useState(false);
+  const [fallbackImage, setFallbackImage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) {
@@ -47,6 +48,28 @@ export default function AuctionDetailPage() {
         }
 
         const data: Auction = await res.json();
+        console.log("ข้อมูลประมูลที่ได้รับ:", data);
+        console.log("URL รูปภาพ:", data.card?.imageUrl);
+        
+        // ถ้าไม่มี imageUrl แต่มีชื่อการ์ด ให้ลองค้นหารูปภาพจากชื่อการ์ด
+        if (!data.card?.imageUrl && data.card?.name) {
+          try {
+            const imageRes = await fetch(`/api/find-images?cardName=${encodeURIComponent(data.card.name)}`);
+            if (imageRes.ok) {
+              const imageData = await imageRes.json();
+              if (imageData.imageUrl) {
+                console.log("พบรูปภาพจากชื่อการ์ด:", imageData.imageUrl);
+                setFallbackImage(imageData.imageUrl);
+              } else {
+                // เพิ่มกรณีไม่พบรูปภาพ ลองใช้ชื่อไฟล์โดยตรง
+                setFallbackImage(`/uploads/${data.card.name.toLowerCase().replace(/\s+/g, '-')}.png?t=${Date.now()}`);
+              }
+            }
+          } catch (imgErr) {
+            console.error("ไม่สามารถค้นหารูปภาพจากชื่อการ์ดได้:", imgErr);
+          }
+        }
+        
         setAuction(data);
         setError("");
 
@@ -111,6 +134,7 @@ export default function AuctionDetailPage() {
   };
 
   const handleImageError = () => {
+    console.error("เกิดข้อผิดพลาดในการโหลดรูปภาพจาก URL:", auction?.card?.imageUrl);
     setImageError(true);
   };
 
@@ -118,7 +142,10 @@ export default function AuctionDetailPage() {
   if (error) return <p className="text-center text-red-500">ข้อผิดพลาด: {error}</p>;
   if (!auction) return <p className="text-center text-gray-500">ไม่พบข้อมูลการประมูล</p>;
 
-  const imageUrl = !imageError && auction.card?.imageUrl ? auction.card.imageUrl : null;
+  // ใช้ URL รูปภาพจากการ์ดหรือรูปภาพสำรองที่ค้นหาจากชื่อการ์ด
+  const imageUrl = !imageError && auction.card?.imageUrl 
+    ? auction.card.imageUrl 
+    : (imageError && fallbackImage ? fallbackImage : fallbackImage);
 
   return (
     <div className="container mx-auto p-4">
@@ -140,6 +167,11 @@ export default function AuctionDetailPage() {
               unoptimized
               onError={handleImageError}
             />
+          </div>
+        )}
+        {!imageUrl && auction.card?.name && (
+          <div className="w-[300px] h-[400px] rounded-lg mx-auto md:mx-0 bg-gray-100 flex items-center justify-center">
+            <p className="text-gray-500 p-4 text-center">ไม่พบรูปภาพสำหรับ {auction.card.name}</p>
           </div>
         )}
         <div>
