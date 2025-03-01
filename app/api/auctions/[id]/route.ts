@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { AuctionStatus } from "@prisma/client";
 
 const getImageUrl = (imagePath?: string) => {
   if (!imagePath) return null;
@@ -22,14 +23,10 @@ export async function GET(req: NextRequest) {
 
     if (!auction) return NextResponse.json({ error: "Auction not found" }, { status: 404 });
 
-    const response = {
+    return NextResponse.json({
       ...auction,
-      card: auction.card
-        ? { ...auction.card, imageUrl: auction.card.imageUrl ? getImageUrl(auction.card.imageUrl) : null }
-        : null,
-    };
-
-    return NextResponse.json(response);
+      card: auction.card ? { ...auction.card, imageUrl: getImageUrl(auction.card.imageUrl) } : null,
+    });
   } catch (error) {
     console.error("🚨 Error fetching auction details:", error);
     return NextResponse.json({ error: "Failed to fetch auction details" }, { status: 500 });
@@ -47,13 +44,19 @@ export async function PATCH(req: NextRequest) {
     const auction = await prisma.auction.findUnique({ where: { id }, include: { card: true } });
     if (!auction) return NextResponse.json({ error: "Auction not found" }, { status: 404 });
 
-    const updateData: Partial<{ currentPrice: number; endTime: Date }> = {};
+    // ❌ ไม่อนุญาตให้เสนอราคาหากประมูลถูกปิด
+    if (auction.status === "CLOSED") {
+      return NextResponse.json({ error: "This auction has been closed" }, { status: 400 });
+    }
+
+    const updateData: Partial<{ currentPrice: number; endTime: Date; status: AuctionStatus }> = {};
 
     if (bidAmount !== undefined) {
       if (typeof bidAmount !== "number" || isNaN(bidAmount) || bidAmount <= auction.currentPrice) {
         return NextResponse.json({ error: "Invalid bid amount" }, { status: 400 });
       }
       updateData.currentPrice = bidAmount;
+      updateData.status = AuctionStatus.ACTIVE;
     }
 
     if (endTime) {
@@ -66,19 +69,16 @@ export async function PATCH(req: NextRequest) {
       include: { card: true },
     });
 
-    const response = {
+    return NextResponse.json({
       ...updatedAuction,
-      card: updatedAuction.card
-        ? { ...updatedAuction.card, imageUrl: updatedAuction.card.imageUrl ? getImageUrl(updatedAuction.card.imageUrl) : null }
-        : null,
-    };
-
-    return NextResponse.json(response);
+      card: updatedAuction.card ? { ...updatedAuction.card, imageUrl: getImageUrl(updatedAuction.card.imageUrl) } : null,
+    });
   } catch (error) {
     console.error("🚨 Error updating auction:", error);
     return NextResponse.json({ error: "Failed to update auction" }, { status: 500 });
   }
 }
+
 
 export async function DELETE(req: NextRequest) {
   try {
@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
 
     const updatedAuction = await prisma.auction.update({
       where: { id },
-      data: { status: "CLOSED" },
+      data: { status: AuctionStatus.CLOSED },
     });
 
     return NextResponse.json({ message: "Auction closed successfully", auction: updatedAuction });

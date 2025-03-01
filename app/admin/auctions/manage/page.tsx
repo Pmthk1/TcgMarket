@@ -71,7 +71,6 @@ export default function ManageAuction() {
       const res = await fetch(`/api/auctions/${id}/close`, { method: "POST" });
       
       if (!res.ok) {
-        // Only throw an error if the response is not ok
         throw new Error("Failed to close auction");
       }
 
@@ -128,8 +127,10 @@ export default function ManageAuction() {
               <p className="mt-2 text-sm">
                 Status:{" "}
                 <span
-                  className={`px-2 py-1 rounded-md ${
-                    auction.status === "CLOSED" ? "bg-red-500 text-white" : "bg-green-500 text-white"
+                  className={`px-2 py-1 rounded-md text-white ${
+                    auction.status === "CLOSED" ? "bg-red-500" :
+                    auction.status === "PENDING" ? "bg-yellow-500" :
+                    "bg-green-500"
                   }`}
                 >
                   {auction.status}

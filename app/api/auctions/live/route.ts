@@ -9,6 +9,7 @@ export async function GET() {
       where: {
         startTime: { lte: now }, // startTime <= ปัจจุบัน
         endTime: { gt: now }, // endTime > ปัจจุบัน
+        status: { not: "CLOSED" }, // ✅ กรองเฉพาะการประมูลที่ยังไม่ปิด
       },
       include: { 
         card: { 

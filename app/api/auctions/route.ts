@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/prisma";  // ✅ ถูกต้อง
+import prisma from "@/lib/prisma";  
 import { writeFile } from "fs/promises";
 import fs from "fs";
 import path from "path";
@@ -19,7 +19,7 @@ export async function GET() {
         card: {
           select: {
             name: true,
-            imageUrl: true, // ✅ ดึงรูปภาพการ์ด
+            imageUrl: true,
           },
         },
       },
@@ -85,12 +85,21 @@ export async function POST(req: Request) {
     let imageUrl = "";
     if (image) {
       try {
+        // ✅ ตรวจสอบว่าเป็นไฟล์ภาพ
+        if (!image.type.startsWith("image/")) {
+          return NextResponse.json({ error: "Invalid file type. Only images are allowed." }, { status: 400 });
+        }
+
         const bytes = await image.arrayBuffer();
         const buffer = Buffer.from(bytes);
-        const filePath = path.join(uploadDir, image.name);
+
+        // ✅ ป้องกันชื่อไฟล์ซ้ำ
+        const fileExt = path.extname(image.name);
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}${fileExt}`;
+        const filePath = path.join(uploadDir, fileName);
 
         await writeFile(filePath, buffer);
-        imageUrl = `/uploads/${image.name}`;
+        imageUrl = `/uploads/${fileName}`;
       } catch {
         console.error("🚨 Image upload failed");
         return NextResponse.json({ error: "Image upload failed" }, { status: 500 });
@@ -109,7 +118,7 @@ export async function POST(req: Request) {
         startTime,
         endTime,
         status: "PENDING",
-        isClosed: false, // ✅ เริ่มต้นให้การประมูลยังไม่ถูกปิด
+        isClosed: false,
         imageUrl,
       },
       include: {
@@ -129,12 +138,27 @@ export async function PUT(req: NextRequest) {
   try {
     const { auctionId } = await req.json();
 
-    const auction = await prisma.auction.update({
+    // ✅ ตรวจสอบว่าการประมูลมีอยู่และยังไม่ถูกปิด
+    const auction = await prisma.auction.findUnique({
+      where: { id: auctionId },
+      select: { isClosed: true },
+    });
+
+    if (!auction) {
+      return NextResponse.json({ success: false, error: "Auction not found" }, { status: 404 });
+    }
+
+    if (auction.isClosed) {
+      return NextResponse.json({ success: false, error: "Auction is already closed" }, { status: 400 });
+    }
+
+    // ✅ อัปเดตสถานะการปิดประมูล
+    const updatedAuction = await prisma.auction.update({
       where: { id: auctionId },
       data: { isClosed: true },
     });
 
-    return NextResponse.json({ success: true, auction });
+    return NextResponse.json({ success: true, auction: updatedAuction });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Internal Server Error";
     return NextResponse.json({ success: false, error: errorMessage }, { status: 500 });
