@@ -21,6 +21,7 @@ model User {
   Payments           Payment[]     @relation("UserPayments")
   TransactionsBuyer  Transaction[] @relation("BuyerTransactions")
   TransactionsSeller Transaction[] @relation("SellerTransactions")
+  wonAuctions        Auction[]     @relation("Winner") // ✅ เพิ่มฟิลด์เพื่อเชื่อม Winner
 }
 
 model Product {
@@ -51,9 +52,10 @@ model Auction {
   startPrice      Float
   currentPrice    Float
   highestBidderId String?
+  winnerId        String?  
   startTime       DateTime
   endTime         DateTime
-  isClosed        Boolean       @default(false) // ✅ เพิ่มฟิลด์นี้เพื่อปิดประมูล
+  isClosed        Boolean       @default(false)
   status          AuctionStatus @default(PENDING)
   createdAt       DateTime      @default(now())
   description     String?
@@ -62,8 +64,10 @@ model Auction {
   category        String?
   card            Card          @relation("CardAuctions", fields: [cardId], references: [id], onDelete: Cascade)
   highestBidder   User?         @relation("HighestBidder", fields: [highestBidderId], references: [id])
+  winner          User?         @relation("Winner", fields: [winnerId], references: [id]) // ✅ ใช้ Relation ที่สมบูรณ์
   Bids            Bid[]
   Transactions    Transaction[] @relation("AuctionTransactions")
+  endedAt         DateTime?
 
   @@index([cardId])
 }
@@ -150,7 +154,7 @@ model PaymentItem {
 
 enum AuctionStatus {
   PENDING
-  LIVE       // ✅ เพิ่มสถานะนี้
+  LIVE
   ACTIVE
   CLOSED
   COMPLETED

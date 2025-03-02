@@ -9,11 +9,13 @@ export default function AddProduct() {
   const [productName, setProductName] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
+  const [category, setCategory] = useState("");
   const [productImage, setProductImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
-  const [hydrated, setHydrated] = useState(false); // ✅ ใช้แทน isClient
+  const [hydrated, setHydrated] = useState(false);
+
+  const categories = ["Pokemon", "One Piece"]; // ✅ หมวดหมู่สินค้า
 
   useEffect(() => {
     setHydrated(true);
@@ -33,50 +35,35 @@ export default function AddProduct() {
     }
   };
 
-  const handleUpload = async () => {
-    if (!productImage) {
-      alert("กรุณาเลือกไฟล์ก่อน");
-      return;
-    }
-
-    setUploading(true);
-    const formData = new FormData();
-    formData.append("file", productImage);
-
-    try {
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setUploadedImageUrl(data.url);
-      } else {
-        alert("Upload failed: " + data.message);
-      }
-    } catch (error) {
-      console.error("Upload error:", error);
-    } finally {
-      setUploading(false);
-    }
-  };
-
   const handleSubmit = async () => {
-    if (!productName || !description || !price || !uploadedImageUrl) {
+    if (!productName || !description || !price || !category || !productImage) {
       alert("กรุณากรอกข้อมูลให้ครบ");
       return;
     }
 
-    const productData = {
-      name: productName,
-      description,
-      price: parseFloat(price),
-      imageUrl: uploadedImageUrl,
-    };
+    const formData = new FormData();
+    formData.append("file", productImage);
 
     try {
+      setUploading(true);
+      const uploadResponse = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await uploadResponse.json();
+      if (!uploadResponse.ok) {
+        throw new Error(data.error || "อัปโหลดรูปไม่สำเร็จ");
+      }
+
+      const productData = {
+        name: productName,
+        description,
+        price: parseFloat(price),
+        category,
+        imageUrl: data.imageUrl,
+      };
+
       const response = await fetch("/api/products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -91,10 +78,13 @@ export default function AddProduct() {
       }
     } catch (error) {
       console.error("Error:", error);
+      alert("เกิดข้อผิดพลาดระหว่างอัปโหลด");
+    } finally {
+      setUploading(false);
     }
   };
 
-  if (!hydrated) return null; // ✅ ป้องกันปัญหา Hydration Mismatch
+  if (!hydrated) return null;
 
   return (
     <div className="p-6 max-w-lg mx-auto">
@@ -119,12 +109,22 @@ export default function AddProduct() {
         type="text"
         placeholder="ราคา (บาท)"
         value={price}
-        onChange={(e) => {
-          const value = e.target.value.replace(/[^0-9.]/g, "");
-          setPrice(value);
-        }}
+        onChange={(e) => setPrice(e.target.value.replace(/[^0-9.]/g, ""))}
         className="border p-2 w-full mb-4"
       />
+
+      <select
+        value={category}
+        onChange={(e) => setCategory(e.target.value)}
+        className="border p-2 w-full mb-4"
+      >
+        <option value="">เลือกประเภทสินค้า</option>
+        {categories.map((cat) => (
+          <option key={cat} value={cat}>
+            {cat}
+          </option>
+        ))}
+      </select>
 
       <input type="file" accept="image/*" onChange={handleFileChange} className="mb-4" />
 
@@ -135,19 +135,12 @@ export default function AddProduct() {
         </div>
       )}
 
-      <button onClick={handleUpload} className="bg-blue-500 text-white px-4 py-2 rounded mb-4 w-full" disabled={uploading}>
-        {uploading ? "กำลังอัปโหลด..." : "อัปโหลดรูปภาพ"}
-      </button>
-
-      {uploadedImageUrl && (
-        <div className="mt-4">
-          <h3 className="text-lg">รูปที่อัปโหลดแล้ว:</h3>
-          <Image src={uploadedImageUrl} alt="Uploaded Image" width={300} height={200} className="rounded-lg" unoptimized />
-        </div>
-      )}
-
-      <button onClick={handleSubmit} className="bg-green-500 text-white px-4 py-2 rounded mt-4 w-full">
-        เพิ่มสินค้า
+      <button
+        onClick={handleSubmit}
+        className="bg-green-500 text-white px-4 py-2 rounded mt-4 w-full"
+        disabled={uploading}
+      >
+        {uploading ? "กำลังอัปโหลด..." : "เพิ่มสินค้า"}
       </button>
     </div>
   );

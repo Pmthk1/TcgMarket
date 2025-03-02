@@ -8,10 +8,12 @@ declare module "next-auth" {
     role: string;
     email?: string;
     clerkId?: string;
+    accessToken?: string; // ✅ เพิ่ม accessToken ใน User
   }
 
   interface Session extends DefaultSession {
     user: User;
+    accessToken?: string; // ✅ เพิ่ม accessToken ใน Session
   }
 }
 
@@ -22,5 +24,6 @@ declare module "next-auth/jwt" {
     role: string;
     email?: string;
     clerkId?: string;
+    accessToken?: string; // ✅ เพิ่ม accessToken ใน JWT
   }
 }

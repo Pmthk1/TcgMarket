@@ -3,43 +3,51 @@ import prisma from "@/lib/prisma";
 
 export async function GET() {
   try {
+    console.log("✅ Fetching live auctions...");
     const now = new Date();
+    console.log("🕒 Current Time:", now);
 
     const liveAuctions = await prisma.auction.findMany({
       where: {
-        startTime: { lte: now }, // startTime <= ปัจจุบัน
-        endTime: { gt: now }, // endTime > ปัจจุบัน
-        status: { not: "CLOSED" }, // ✅ กรองเฉพาะการประมูลที่ยังไม่ปิด
+        startTime: { lte: now },
+        endTime: { gt: now },
+        status: { not: "CLOSED" },
       },
-      include: { 
-        card: { 
+      include: {
+        card: {
           select: {
-            name: true, 
+            name: true,
             imageUrl: true,
-          } 
-        } 
+          },
+        },
       },
     });
 
-    // ✅ ป้องกันการส่ง imageUrl เป็นค่าว่าง
-    const formattedAuctions = liveAuctions.map(auction => ({
+    console.log("🔥 Raw Auctions Data:", liveAuctions);
+
+    if (liveAuctions.length === 0) {
+      console.warn("⚠️ No live auctions found!");
+    }
+
+    const formattedAuctions = liveAuctions.map((auction) => ({
       ...auction,
       card: auction.card
         ? {
             ...auction.card,
-            imageUrl: auction.card.imageUrl?.trim() || auction.imageUrl?.trim() || null, // ใช้ imageUrl ของ card ถ้ามีค่า, ถ้าไม่มีให้ใช้ auction.imageUrl, ถ้าไม่มีเลยให้เป็น null
+            imageUrl: auction.card.imageUrl?.trim() || auction.imageUrl?.trim() || null,
           }
         : null,
-      imageUrl: auction.imageUrl?.trim() || null, // ป้องกัน "" และแทนที่ด้วย null
+      imageUrl: auction.imageUrl?.trim() || null,
     }));
 
-    console.log("✅ Live Auctions with Image:", formattedAuctions);
+    console.log("✅ Formatted Auctions:", formattedAuctions);
 
     return NextResponse.json(formattedAuctions, { status: 200 });
   } catch (error) {
     console.error("🚨 Error fetching live auctions:", error);
+
     return NextResponse.json(
-      { error: "Failed to fetch live auctions" },
+      { error: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 }
     );
   }

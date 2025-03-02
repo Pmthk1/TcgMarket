@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import Navbar from "@/components/Navbar/Navbar";
-import Providers from "./Providers"; // ตรวจสอบให้ตรงกับชื่อไฟล์ที่ใช้
+import Providers from "./Providers";
+import NavbarWrapper from "@/components/Navbar/NavbarWrapper"; // นำ Navbar ไปใช้จาก Component ใหม่
 
 export const metadata: Metadata = {
   title: "TCGMarket",
@@ -20,7 +20,7 @@ export default function RootLayout({
       </head>
       <body className="antialiased">
         <Providers>
-          <Navbar />
+          <NavbarWrapper /> {/* ใช้ Component ที่แยกใหม่ */}
           <main className="p-2 mt-2">{children}</main>
         </Providers>
       </body>

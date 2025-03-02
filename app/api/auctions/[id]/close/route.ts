@@ -12,14 +12,14 @@ export async function POST(
   }
 
   try {
-    // Find the auction first
+    // 🔎 ค้นหาการประมูลจากฐานข้อมูล
     const auction = await prisma.auction.findUnique({ where: { id } });
 
     if (!auction) {
       return NextResponse.json({ error: "Auction not found" }, { status: 404 });
     }
 
-    // Check if status is already CLOSED
+    // 🚨 ตรวจสอบว่าการประมูลปิดไปแล้วหรือยัง
     if (auction.status === "CLOSED") {
       return NextResponse.json(
         { message: "Auction already closed" },
@@ -27,11 +27,16 @@ export async function POST(
       );
     }
 
-    // Close the auction
+    // ✅ ปิดการประมูลและอัปเดต `endedAt` เป็นเวลาปัจจุบัน
     const updatedAuction = await prisma.auction.update({
       where: { id },
-      data: { status: "CLOSED" },
+      data: {
+        status: "CLOSED",
+        endedAt: new Date(), // บันทึกเวลาที่ปิดจริง
+      },
     });
+
+    console.log(`✅ Auction ${id} closed successfully.`);
 
     return NextResponse.json(
       { message: "Auction closed successfully", auction: updatedAuction },

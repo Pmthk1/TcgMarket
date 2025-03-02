@@ -138,10 +138,10 @@ export async function PUT(req: NextRequest) {
   try {
     const { auctionId } = await req.json();
 
-    // ✅ ตรวจสอบว่าการประมูลมีอยู่และยังไม่ถูกปิด
+    // ✅ ค้นหาการประมูล
     const auction = await prisma.auction.findUnique({
       where: { id: auctionId },
-      select: { isClosed: true },
+      select: { isClosed: true, endTime: true },
     });
 
     if (!auction) {
@@ -152,13 +152,19 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Auction is already closed" }, { status: 400 });
     }
 
-    // ✅ อัปเดตสถานะการปิดประมูล
-    const updatedAuction = await prisma.auction.update({
-      where: { id: auctionId },
-      data: { isClosed: true },
-    });
+    // ✅ เช็คเวลาหมดประมูล
+    const now = new Date();
+    if (auction.endTime && now >= auction.endTime) {
+      // ✅ อัปเดตสถานะเป็น "CLOSED"
+      const updatedAuction = await prisma.auction.update({
+        where: { id: auctionId },
+        data: { isClosed: true, status: "CLOSED" },
+      });
 
-    return NextResponse.json({ success: true, auction: updatedAuction });
+      return NextResponse.json({ success: true, auction: updatedAuction });
+    }
+
+    return NextResponse.json({ success: false, error: "Auction is still active" }, { status: 400 });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Internal Server Error";
     return NextResponse.json({ success: false, error: errorMessage }, { status: 500 });

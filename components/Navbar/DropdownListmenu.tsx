@@ -99,11 +99,6 @@ const DropdownListmenu: React.FC = () => {
             {isBidsOpen && (
               <div className="pl-6">
                 <DropdownMenuItem asChild>
-                  <Link href="/bids/current" className="block px-3 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-md">
-                    Current Bids
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
                   <Link href="/bids/history" className="block px-3 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-md">
                     Bid History
                   </Link>

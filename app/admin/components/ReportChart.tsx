@@ -4,18 +4,18 @@ import { Chart, CategoryScale, LinearScale, PointElement, LineElement, Title, To
 
 Chart.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
-const data = {
-  labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
-  datasets: [
-    {
-      label: "Revenue",
-      data: [1000, 1500, 1800, 2200, 2600, 3000],
-      borderColor: "blue",
-      backgroundColor: "rgba(0, 0, 255, 0.2)",
-    },
-  ],
+type ReportChartProps = {
+  data: {
+    labels: string[];
+    datasets: {
+      label: string;
+      data: number[];
+      borderColor: string;
+      backgroundColor: string;
+    }[];
+  };
 };
 
-export default function ReportChart() {
+export default function ReportChart({ data }: ReportChartProps) {
   return <Line data={data} />;
 }

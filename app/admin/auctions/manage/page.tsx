@@ -5,60 +5,82 @@ import { useSearchParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import useSWR from "swr";
+
+interface Card {
+  id: string;
+  name: string;
+  type: string;
+  startingPrice: number;
+  imageUrl?: string;
+}
 
 interface Auction {
   id: string;
-  cardName: string;
+  cardName?: string;
+  cardType?: string;
   title: string;
   description: string;
   imageUrl: string;
   status: string;
+  startingPrice?: number;
   currentPrice: number;
   endTime: string;
+  createdAt: string;
+  endedAt: string | null;
+  isClosed: boolean;
+  card?: Card;
 }
+
+// กำหนดประเภทข้อมูลที่เป็นไปได้สำหรับสถานะ
+type AuctionStatus = "PENDING" | "ACTIVE" | "CLOSED";
+
+// SWR fetcher function
+const fetcher = async (url: string) => {
+  const res = await fetch(url);
+  if (!res.ok) {
+    const error = new Error("เกิดข้อผิดพลาดในการดึงข้อมูล");
+    throw error;
+  }
+  return res.json();
+};
 
 export default function ManageAuction() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const id = searchParams.get("id");
-
-  const [auction, setAuction] = useState<Auction | null>(null);
-  const [loading, setLoading] = useState({ fetch: true, delete: false, close: false, update: false });
-  const [error, setError] = useState<string | null>(null);
+  
   const [endTime, setEndTime] = useState<string>("");
+  const [loading, setLoading] = useState({ delete: false, close: false, update: false });
+  
+  // ใช้ useSWR แทน useState และ useEffect สำหรับการดึงข้อมูล
+  const { data: auction, error, mutate } = useSWR<Auction>(
+    id ? `/api/auctions/${id}` : null, 
+    fetcher, 
+    { 
+      refreshInterval: 5000, // รีเฟรชข้อมูลทุก 5 วินาที
+      revalidateOnFocus: true
+    }
+  );
 
   useEffect(() => {
-    if (!id) return;
-    async function fetchAuction() {
-      try {
-        const res = await fetch(`/api/auctions/${id}`);
-        if (!res.ok) throw new Error("Failed to fetch auction");
-
-        const data: Auction = await res.json();
-        setAuction(data);
-        setEndTime(new Date(data.endTime).toISOString().slice(0, 16)); // แปลงเป็น datetime-local
-        setError(null);
-      } catch (error) {
-        console.error("Error fetching auction:", error);
-        setError(error instanceof Error ? error.message : "Unknown error");
-      } finally {
-        setLoading((prev) => ({ ...prev, fetch: false }));
-      }
+    if (auction?.endTime) {
+      // แปลงวันที่จากฐานข้อมูลให้อยู่ในรูปแบบที่ input datetime-local ใช้ได้
+      setEndTime(new Date(auction.endTime).toISOString().slice(0, 16));
     }
-    fetchAuction();
-  }, [id]);
+  }, [auction]);
 
   async function handleDelete() {
     if (!id || !confirm("คุณต้องการลบการประมูลนี้หรือไม่?")) return;
     setLoading((prev) => ({ ...prev, delete: true }));
     try {
       const res = await fetch(`/api/auctions/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete auction");
+      if (!res.ok) throw new Error("ไม่สามารถลบการประมูลได้");
 
       alert("ลบการประมูลเรียบร้อยแล้ว");
       router.push("/admin/auctions");
     } catch (error) {
-      console.error("Error deleting auction:", error);
+      console.error("เกิดข้อผิดพลาดในการลบการประมูล:", error);
       alert(error instanceof Error ? error.message : "เกิดข้อผิดพลาดในการลบการประมูล");
     } finally {
       setLoading((prev) => ({ ...prev, delete: false }));
@@ -69,13 +91,23 @@ export default function ManageAuction() {
     if (!id || !confirm("คุณต้องการปิดการประมูลนี้หรือไม่?")) return;
     setLoading((prev) => ({ ...prev, close: true }));
     try {
-      const res = await fetch(`/api/auctions/${id}/close`, { method: "POST" });
-      if (!res.ok) throw new Error("Failed to close auction");
+      // ต้องเป็น POST ตาม API ที่เตรียมไว้
+      const res = await fetch(`/api/auctions/${id}`, { 
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ action: "close" })
+      });
+      
+      if (!res.ok) throw new Error("ไม่สามารถปิดการประมูลได้");
 
       alert("ปิดการประมูลเรียบร้อยแล้ว");
-      router.refresh();
+      
+      // รีเฟรชข้อมูลทันทีหลังจากการปิดประมูล
+      await mutate(); // โหลดข้อมูลใหม่
     } catch (error) {
-      console.error("Error closing auction:", error);
+      console.error("เกิดข้อผิดพลาดในการปิดการประมูล:", error);
       alert(error instanceof Error ? error.message : "เกิดข้อผิดพลาดในการปิดการประมูล");
     } finally {
       setLoading((prev) => ({ ...prev, close: false }));
@@ -92,47 +124,87 @@ export default function ManageAuction() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ endTime }),
       });
-      if (!res.ok) throw new Error("Failed to update auction end time");
+      if (!res.ok) throw new Error("ไม่สามารถอัปเดตเวลาสิ้นสุดการประมูลได้");
 
       alert("อัปเดตเวลาสิ้นสุดการประมูลเรียบร้อยแล้ว");
-      router.refresh();
+      // รีเฟรชข้อมูลทันที
+      await mutate();
     } catch (error) {
-      console.error("Error updating auction end time:", error);
+      console.error("เกิดข้อผิดพลาดในการอัปเดตเวลาสิ้นสุดการประมูล:", error);
       alert(error instanceof Error ? error.message : "เกิดข้อผิดพลาดในการอัปเดตเวลา");
     } finally {
       setLoading((prev) => ({ ...prev, update: false }));
     }
   }
 
-  if (!id) return <p>No auction selected.</p>;
-  if (loading.fetch) return <p>Loading...</p>;
-  if (error) return <p className="text-red-500">Error: {error}</p>;
-  if (!auction) return <p className="text-gray-500">Auction not found.</p>;
+  // แสดงข้อความถ้ายังไม่มี ID การประมูล
+  if (!id) return <p>ไม่ได้เลือกการประมูล</p>;
+  // แสดงข้อความกำลังโหลดระหว่างดึงข้อมูล
+  if (!auction) return <p>กำลังโหลด...</p>;
+  // แสดงข้อความผิดพลาดถ้าดึงข้อมูลไม่สำเร็จ
+  if (error) return <p className="text-red-500">ข้อผิดพลาด: {error instanceof Error ? error.message : "เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ"}</p>;
+
+  // ปรับปรุงการตรวจสอบสถานะปิดประมูล - ตรวจสอบจากหลายเงื่อนไข
+  const isAuctionClosed = 
+    auction.status === "CLOSED" || 
+    auction.endedAt !== null || 
+    auction.isClosed === true || 
+    (auction.endTime && new Date(auction.endTime) < new Date());
+
+  // แปลงสถานะเป็นภาษาไทยเพื่อแสดงผล
+  const statusThai: Record<AuctionStatus, string> = {
+    PENDING: "รอดำเนินการ",
+    ACTIVE: "กำลังประมูล",
+    CLOSED: "ปิดการประมูลแล้ว"
+  };
+
+  // ฟังก์ชันช่วยสำหรับแปลงสถานะเป็นภาษาไทยอย่างปลอดภัย
+  const getThaiStatus = (status: string): string => {
+    return (statusThai as Record<string, string>)[status] || status;
+  };
+  
+  // กำหนดสถานะที่จะแสดงโดยใช้การคำนวณที่ปรับปรุงแล้ว
+  const displayStatus = isAuctionClosed ? "CLOSED" : auction.status;
 
   return (
     <div className="max-w-3xl mx-auto p-6">
       <Card>
         <CardHeader>
-          <CardTitle>Manage Auction</CardTitle>
+          <CardTitle>จัดการการประมูล</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Auction Details */}
+            {/* รายละเอียดการประมูล */}
             <div>
-              <h2 className="text-2xl font-semibold text-black-700">{auction.cardName}</h2> {/* เพิ่มชื่อการ์ดที่นี่ */}
+              <h2 className="text-2xl font-semibold text-black-700">
+                {auction.card?.name || auction.cardName || "ไม่มีชื่อการ์ด"}
+              </h2>
               <p className="text-gray-600">{auction.description}</p>
-              <p className="mt-2 font-bold text-green-600">ราคาประมูลปัจจุบัน: ฿{auction.currentPrice.toLocaleString()}</p>
+              <p className="mt-1 font-bold text-green-600">
+                ราคาประมูลปัจจุบัน: ฿{auction.currentPrice.toLocaleString()}
+              </p>
               <p className="mt-2 text-sm">
-                Status:{" "}
+                สถานะ:{" "}
                 <span
                   className={`px-2 py-1 rounded-md text-white ${
-                    auction.status === "CLOSED" ? "bg-red-500" :
-                    auction.status === "PENDING" ? "bg-yellow-500" :
+                    isAuctionClosed ? "bg-red-500" :
+                    displayStatus === "PENDING" ? "bg-yellow-500" :
                     "bg-green-500"
                   }`}
                 >
-                  {auction.status}
+                  {isAuctionClosed ? "ปิดการประมูลแล้ว" : getThaiStatus(displayStatus)}
                 </span>
+              </p>
+              <p className="mt-2 text-xs text-gray-500">
+                สร้างเมื่อ: {new Date(auction.createdAt).toLocaleString('th-TH')}
+              </p>
+              {auction.endedAt && (
+                <p className="mt-2 text-xs text-gray-500">
+                  ปิดประมูลเมื่อ: {new Date(auction.endedAt).toLocaleString('th-TH')}
+                </p>
+              )}
+              <p className="mt-2 text-xs text-gray-500">
+                เวลาสิ้นสุดการประมูล: {new Date(auction.endTime).toLocaleString('th-TH')}
               </p>
               <div className="mt-4">
                 <label className="block text-sm font-medium text-gray-700">วันที่และเวลาสิ้นสุด:</label>
@@ -141,23 +213,24 @@ export default function ManageAuction() {
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200"
+                  disabled={isAuctionClosed || false} // แก้ TypeScript error ด้วยการใช้ Boolean type
                 />
                 <Button
                   className="mt-2 bg-blue-500 hover:bg-blue-600 text-white"
                   onClick={handleUpdateEndTime}
-                  disabled={loading.update}
+                  disabled={loading.update || isAuctionClosed || false} // แก้ TypeScript error ด้วยการใช้ Boolean type
                 >
                   {loading.update ? "กำลังอัปเดต..." : "อัปเดตเวลาสิ้นสุด"}
                 </Button>
               </div>
             </div>
 
-            {/* Auction Image */}
+            {/* รูปภาพการประมูล */}
             <div>
               {auction.imageUrl ? (
                 <Image
                   src={auction.imageUrl}
-                  alt={auction.title || "Auction item image"}
+                  alt={auction.title || "รูปภาพการประมูล"}
                   width={500}
                   height={300}
                   className="w-full rounded-lg shadow-md object-cover"
@@ -165,19 +238,19 @@ export default function ManageAuction() {
                 />
               ) : (
                 <div className="w-full h-40 bg-gray-200 flex items-center justify-center rounded-lg">
-                  <p className="text-gray-500">No Image</p>
+                  <p className="text-gray-500">ไม่มีรูปภาพ</p>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Buttons */}
+          {/* ปุ่มดำเนินการ */}
           <div className="flex gap-4 mt-6">
             <Button variant="outline" onClick={() => router.push("/admin/auctions")} className="text-gray-700 border-gray-400">
               ย้อนกลับ
             </Button>
 
-            {auction.status !== "CLOSED" && (
+            {!isAuctionClosed && (
               <Button
                 variant="secondary"
                 onClick={handleCloseAuction}

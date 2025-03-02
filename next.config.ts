@@ -8,11 +8,15 @@ const nextConfig = {
       },
       {
         protocol: "https",
-        hostname: "your-supabase-project.supabase.co", // 🔹 แก้เป็นโดเมนของ Supabase ของคุณ
+        hostname: "wwwdtcmxpfczpjschoqm.supabase.co",
       },
       {
         protocol: "https",
         hostname: "promptpay.io",
+      },
+      {
+        protocol: "https",
+        hostname: "example.com", // ✅ เพิ่มโดเมนที่มีปัญหา
       },
       {
         protocol: "http",

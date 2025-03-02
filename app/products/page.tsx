@@ -47,22 +47,26 @@ const Products = () => {
         </select>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-10">
-        {sortedProducts.map((product) => (
-          <Link key={product.id} href={`/products/Card${product.id}`}>
-            <div className="relative cursor-pointer transition-transform transform hover:scale-105 text-center">
-              <Image 
-                src={product.image} 
-                alt={product.name} 
-                width={200} 
-                height={280} 
-                className="rounded-lg shadow-md object-cover mx-auto"
-                placeholder="empty"
-              />
-              <p className="text-lg font-semibold mt-2">{product.name}</p>
-              <p className="text-sm text-gray-600">฿{product.price}</p>
-            </div>
-          </Link>
-        ))}
+        {sortedProducts.length === 0 ? (
+          <p className="col-span-full text-center text-gray-500">ไม่มีสินค้าที่ตรงกับตัวกรอง</p>
+        ) : (
+          sortedProducts.map((product) => (
+            <Link key={product.id} href={`/products/${product.id}`} className="text-center">
+              <div className="relative cursor-pointer transition-transform transform hover:scale-105">
+                <Image 
+                  src={product.image} 
+                  alt={product.name} 
+                  width={200} 
+                  height={280} 
+                  className="rounded-lg shadow-md object-cover mx-auto"
+                  onError={(e) => e.currentTarget.src = '/images/placeholder.png'} // 🔹 ใส่ fallback
+                />
+                <p className="text-lg font-semibold mt-2">{product.name}</p>
+                <p className="text-sm text-gray-600">฿{product.price}</p>
+              </div>
+            </Link>
+          ))
+        )}
       </div>
     </div>
   );
