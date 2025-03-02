@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  const { id } = params;
+export async function POST(req: NextRequest) {
+  const url = new URL(req.url);
+  const id = url.pathname.split("/").slice(-2, -1)[0]; // ดึง ID จาก pathname
 
   if (!id) {
     return NextResponse.json({ error: "Missing auction ID" }, { status: 400 });
@@ -32,7 +30,7 @@ export async function POST(
       where: { id },
       data: {
         status: "CLOSED",
-        endedAt: new Date(), // บันทึกเวลาที่ปิดจริง
+        endedAt: new Date(),
       },
     });
 
