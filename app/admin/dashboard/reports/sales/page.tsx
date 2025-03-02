@@ -11,16 +11,39 @@ interface SalesData {
 
 export default function SalesReportPage() {
   const [salesData, setSalesData] = useState<SalesData[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchSalesData() {
-      const response = await fetch("/api/reports/sales");
-      const data: SalesData[] = await response.json();
-      setSalesData(data);
+      try {
+        const response = await fetch("/api/reports/sales");
+        if (!response.ok) {
+          throw new Error("Failed to fetch data");
+        }
+        const data: SalesData[] = await response.json();
+        if (Array.isArray(data)) {
+          setSalesData(data);
+        } else {
+          throw new Error("Received data is not an array");
+        }
+      } catch (error) {
+        setError((error as Error).message);
+      } finally {
+        setIsLoading(false);
+      }
     }
 
     fetchSalesData();
   }, []);
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+
+  if (error) {
+    return <div>Error: {error}</div>;
+  }
 
   return (
     <div className="p-6">

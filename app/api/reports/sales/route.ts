@@ -15,15 +15,25 @@ export async function GET() {
       .order("created_at", { ascending: true });
 
     if (error) {
+      console.error("Supabase error:", error.message);
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    if (!data) {
+      console.error("No data returned from Supabase");
+      return NextResponse.json({ error: "No sales data found" }, { status: 500 });
     }
 
     // แปลงข้อมูลให้เป็นยอดขายรายวัน
     const salesData: { [key: string]: number } = {};
 
     data.forEach((payment) => {
-      const date = payment.created_at.split("T")[0]; // แปลง timestamp เป็นวันที่
-      salesData[date] = (salesData[date] || 0) + payment.amount; // รวมยอดขายของแต่ละวัน
+      if (payment.created_at && payment.amount != null) {
+        const date = payment.created_at.split("T")[0]; // แปลง timestamp เป็นวันที่
+        salesData[date] = (salesData[date] || 0) + payment.amount; // รวมยอดขายของแต่ละวัน
+      } else {
+        console.warn("Skipping invalid payment data:", payment);
+      }
     });
 
     // จัดรูปแบบข้อมูลให้เป็น Array
