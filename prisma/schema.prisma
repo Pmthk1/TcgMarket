@@ -22,6 +22,7 @@ model User {
   TransactionsBuyer  Transaction[] @relation("BuyerTransactions")
   TransactionsSeller Transaction[] @relation("SellerTransactions")
   wonAuctions        Auction[]     @relation("Winner") // ✅ เพิ่มฟิลด์เพื่อเชื่อม Winner
+  password  String?  // ✅ ต้องมีฟิลด์นี้
 }
 
 model Product {
