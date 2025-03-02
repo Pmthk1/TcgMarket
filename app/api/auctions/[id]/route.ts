@@ -26,6 +26,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       ...auction,
       card: auction.card ? { ...auction.card, imageUrl: getImageUrl(auction.card.imageUrl) } : null,
+      isClosed: auction.status === "CLOSED"
     });
   } catch (error) {
     console.error("🚨 Error fetching auction details:", error);
@@ -43,11 +44,6 @@ export async function PATCH(req: NextRequest) {
 
     const auction = await prisma.auction.findUnique({ where: { id }, include: { card: true } });
     if (!auction) return NextResponse.json({ error: "Auction not found" }, { status: 404 });
-
-    // ❌ ไม่อนุญาตให้เสนอราคาหากประมูลถูกปิด
-    if (auction.status === "CLOSED") {
-      return NextResponse.json({ error: "This auction has been closed" }, { status: 400 });
-    }
 
     const updateData: Partial<{ currentPrice: number; endTime: Date; status: AuctionStatus }> = {};
 
@@ -72,13 +68,13 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({
       ...updatedAuction,
       card: updatedAuction.card ? { ...updatedAuction.card, imageUrl: getImageUrl(updatedAuction.card.imageUrl) } : null,
+      isClosed: updatedAuction.status === "CLOSED"
     });
   } catch (error) {
     console.error("🚨 Error updating auction:", error);
     return NextResponse.json({ error: "Failed to update auction" }, { status: 500 });
   }
 }
-
 
 export async function DELETE(req: NextRequest) {
   try {
@@ -110,7 +106,10 @@ export async function POST(req: NextRequest) {
       data: { status: AuctionStatus.CLOSED },
     });
 
-    return NextResponse.json({ message: "Auction closed successfully", auction: updatedAuction });
+    return NextResponse.json({
+      message: "Auction closed successfully",
+      auction: { ...updatedAuction, isClosed: updatedAuction.status === "CLOSED" }
+    });
   } catch (error) {
     console.error("🚨 Error closing auction:", error);
     return NextResponse.json({ error: "Failed to close auction" }, { status: 500 });

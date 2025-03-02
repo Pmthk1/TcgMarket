@@ -13,7 +13,8 @@ type Auction = {
   startPrice: number;
   currentPrice: number;
   endTime: string;
-  isClosed: boolean; // ✅ เพิ่มตัวแปรตรวจสอบสถานะปิดประมูล
+  isClosed?: boolean;
+  status?: string;
 };
 
 // ✅ ฟังก์ชันตรวจสอบและคืนค่า URL รูปภาพ
@@ -105,7 +106,7 @@ export default function LiveAuctionsPage() {
                   })}
                 </p>
 
-                {auction.isClosed ? (
+                {(auction.isClosed || auction.status === "CLOSED") ? (
                   <p className="text-red-500 font-bold mt-2">🔒 ปิดการประมูลแล้ว</p>
                 ) : (
                   <button

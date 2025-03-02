@@ -1,13 +1,14 @@
 "use client";
 
-import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import Image from "next/image";
 
 interface Auction {
   id: string;
+  cardName: string;
   title: string;
   description: string;
   imageUrl: string;
@@ -69,10 +70,7 @@ export default function ManageAuction() {
     setLoading((prev) => ({ ...prev, close: true }));
     try {
       const res = await fetch(`/api/auctions/${id}/close`, { method: "POST" });
-      
-      if (!res.ok) {
-        throw new Error("Failed to close auction");
-      }
+      if (!res.ok) throw new Error("Failed to close auction");
 
       alert("ปิดการประมูลเรียบร้อยแล้ว");
       router.refresh();
@@ -121,7 +119,7 @@ export default function ManageAuction() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Auction Details */}
             <div>
-              <h2 className="text-xl font-semibold text-blue-700">{auction.title}</h2>
+              <h2 className="text-2xl font-semibold text-black-700">{auction.cardName}</h2> {/* เพิ่มชื่อการ์ดที่นี่ */}
               <p className="text-gray-600">{auction.description}</p>
               <p className="mt-2 font-bold text-green-600">ราคาประมูลปัจจุบัน: ฿{auction.currentPrice.toLocaleString()}</p>
               <p className="mt-2 text-sm">
