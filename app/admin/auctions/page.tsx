@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import AdminHeader from "@/app/admin/components/AdminHeader";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,6 +17,8 @@ import { Card, CardContent } from "@/components/ui/card";
 interface Auction {
   id: string;
   status: string;
+  endTime?: string;
+  endedAt?: string;
 }
 
 export default function AdminAuctions() {
@@ -30,25 +32,80 @@ export default function AdminAuctions() {
     setIsClient(true);
   }, []);
 
-  useEffect(() => {
-    async function fetchAuctions() {
-      try {
-        const res = await fetch("/api/auctions");
-        if (!res.ok) throw new Error("Failed to fetch auctions");
-        const data: Auction[] = await res.json();
-        setAuctions(data);
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setLoading(false);
-      }
+  // ฟังก์ชันตรวจสอบสถานะประมูลว่าควรเป็น CLOSED หรือไม่
+  const checkAuctionStatus = (auction: Auction) => {
+    // ถ้ามีการปิดประมูลแล้วหรือเวลาหมดแล้ว ให้เป็น CLOSED
+    if (
+      auction.status === "CLOSED" || 
+      auction.endedAt || 
+      (auction.endTime && new Date(auction.endTime) < new Date())
+    ) {
+      return { ...auction, status: "CLOSED" };
     }
-    fetchAuctions();
-  }, []);
+    return auction;
+  };
 
+  // ใช้ useCallback เพื่อหลีกเลี่ยงการรีเฟรชฟังก์ชันทุกครั้งที่ useEffect ทำงาน
+  const fetchAuctions = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await fetch("/api/auctions");
+      if (!res.ok) throw new Error("Failed to fetch auctions");
+
+      const data: Auction[] = await res.json(); // ใช้ const แทน let
+
+      // ตรวจสอบและอัปเดตสถานะตามเวลา
+      const updatedAuctions = data.map(checkAuctionStatus);
+
+      // อัปเดตสถานะประมูลที่ควรปิดแล้วในฐานข้อมูล
+      for (const auction of updatedAuctions) {
+        if (auction.status === "CLOSED" && data.find(a => a.id === auction.id)?.status !== "CLOSED") {
+          await updateAuctionStatus(auction.id, "CLOSED");
+        }
+      }
+
+      setAuctions(updatedAuctions);
+    } catch (error) {
+      console.error("Error fetching auctions:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []); // ทำให้ `fetchAuctions` ไม่ถูกสร้างใหม่ทุกครั้ง
+
+  // ฟังก์ชันอัปเดตสถานะประมูลในฐานข้อมูล
+  const updateAuctionStatus = async (auctionId: string, status: string) => {
+    try {
+      await fetch(`/api/auctions/${auctionId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status }),
+      });
+    } catch (error) {
+      console.error(`Error updating auction ${auctionId} status:`, error);
+    }
+  };
+
+  useEffect(() => {
+    if (isClient) {
+      fetchAuctions();
+
+      // ตั้งเวลาตรวจสอบและอัปเดตสถานะทุก 1 นาที
+      const intervalId = setInterval(fetchAuctions, 60000);
+      return () => clearInterval(intervalId);
+    }
+  }, [isClient, fetchAuctions]); // เพิ่ม `fetchAuctions` ลงใน dependency array
+
+  // กรองรายการประมูลตามตัวกรอง
   const filteredAuctions = auctions.filter(
     (auction) => statusFilter === "ALL" || auction.status === statusFilter
   );
+
+  // ฟังก์ชันรีเฟรชข้อมูล
+  const refreshData = () => {
+    fetchAuctions();
+  };
 
   if (!isClient) return <p className="text-center text-gray-500">Loading...</p>;
 
@@ -58,16 +115,26 @@ export default function AdminAuctions() {
       <Card className="p-4 shadow-md">
         <CardContent>
           <div className="flex justify-between items-center mb-4">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="border rounded-lg px-4 py-2 bg-white shadow-sm"
-            >
-              <option value="ALL">All</option>
-              <option value="PENDING">Pending</option>
-              <option value="ACTIVE">Active</option>
-              <option value="CLOSED">Closed</option>
-            </select>
+            <div className="flex items-center gap-4">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="border rounded-lg px-4 py-2 bg-white shadow-sm"
+              >
+                <option value="ALL">All</option>
+                <option value="PENDING">Pending</option>
+                <option value="ACTIVE">Active</option>
+                <option value="CLOSED">Closed</option>
+              </select>
+              
+              <Button
+                onClick={refreshData}
+                variant="outline"
+                className="border border-gray-300 px-4 py-2 rounded-lg shadow-sm hover:bg-gray-100 transition"
+              >
+                Refresh
+              </Button>
+            </div>
 
             <Button
               onClick={() => router.push("/admin/auctions/create")}
@@ -108,9 +175,9 @@ export default function AdminAuctions() {
                     <TableCell>
                       <Button
                         variant="secondary"
-                        onClick={() =>
-                          router.push(`/admin/auctions/manage?id=${auction.id}`)
-                        }
+                        onClick={() => {
+                          router.push(`/admin/auctions/manage?id=${auction.id}`);
+                        }}
                         className="bg-gray-700 text-white px-4 py-2 rounded-lg shadow-md hover:bg-gray-800 transition"
                       >
                         Edit

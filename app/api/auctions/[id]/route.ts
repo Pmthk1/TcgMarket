@@ -1,9 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { AuctionStatus } from "@prisma/client";
+import { AuctionStatus, Auction, Card } from "@prisma/client";
+
+// Define extended Card type with potentially nullable imageUrl (based on your actual data model)
+type CardWithNullableImage = Omit<Card, 'imageUrl'> & {
+  imageUrl: string | null;
+};
+
+// Define the type for auction with its related card
+type AuctionWithCard = Auction & {
+  card: CardWithNullableImage | null;
+};
+
+// Define the type for the return value which includes additional properties
+type AuctionWithCardAndExtra = AuctionWithCard & {
+  isClosed: boolean;
+};
 
 // ฟังก์ชันช่วยสร้าง URL ของรูปภาพ
-const getImageUrl = (imagePath?: string) => {
+const getImageUrl = (imagePath?: string | null) => {
   if (!imagePath) return null;
   if (imagePath.startsWith("http")) return imagePath;
   const path = imagePath.startsWith("/")
@@ -13,6 +28,35 @@ const getImageUrl = (imagePath?: string) => {
     : `/uploads/${imagePath}`;
   return `${path}?t=${Date.now()}`;
 };
+
+// ✅ ฟังก์ชันตรวจสอบและอัปเดตสถานะประมูลตามเวลา
+async function checkAndUpdateAuctionStatus(auction: AuctionWithCard): Promise<AuctionWithCardAndExtra> {
+  // ถ้าประมูลยังไม่ปิดและเวลาสิ้นสุดน้อยกว่าเวลาปัจจุบัน ให้ปิดประมูลอัตโนมัติ
+  if (auction.status !== "CLOSED" && auction.endTime && new Date(auction.endTime) < new Date()) {
+    console.log(`🕒 Auto-closing auction ${auction.id} due to expired time`);
+    
+    const updatedAuction = await prisma.auction.update({
+      where: { id: auction.id },
+      data: {
+        status: AuctionStatus.CLOSED,
+        endedAt: new Date(),
+      },
+      include: { card: true }
+    });
+    
+    return {
+      ...updatedAuction,
+      card: updatedAuction.card ? { ...updatedAuction.card, imageUrl: getImageUrl(updatedAuction.card.imageUrl) } : null,
+      isClosed: true
+    };
+  }
+  
+  return {
+    ...auction,
+    card: auction.card ? { ...auction.card, imageUrl: getImageUrl(auction.card.imageUrl) } : null,
+    isClosed: auction.status === "CLOSED" || (auction.endTime && new Date(auction.endTime) < new Date())
+  };
+}
 
 // ✅ API: ดึงข้อมูลการประมูล
 export async function GET(req: NextRequest) {
@@ -25,11 +69,10 @@ export async function GET(req: NextRequest) {
 
     if (!auction) return NextResponse.json({ error: "Auction not found" }, { status: 404 });
 
-    return NextResponse.json({
-      ...auction,
-      card: auction.card ? { ...auction.card, imageUrl: getImageUrl(auction.card.imageUrl) } : null,
-      isClosed: auction.status === "CLOSED" || auction.endedAt !== null, // ✅ ใช้ endedAt เพื่อตรวจสอบสถานะปิด
-    });
+    // ตรวจสอบและอัปเดตสถานะตามเวลา
+    const updatedAuction = await checkAndUpdateAuctionStatus(auction);
+
+    return NextResponse.json(updatedAuction);
   } catch (error) {
     console.error("🚨 Error fetching auction details:", error);
     return NextResponse.json({ error: "Failed to fetch auction details" }, { status: 500 });
@@ -43,12 +86,12 @@ export async function PATCH(req: NextRequest) {
     if (!id) return NextResponse.json({ error: "Auction ID is required" }, { status: 400 });
 
     console.log("⚡ Updating auction ID:", id);
-    const { bidAmount, endTime } = await req.json();
+    const { bidAmount, endTime, status } = await req.json();
 
     const auction = await prisma.auction.findUnique({ where: { id }, include: { card: true } });
     if (!auction) return NextResponse.json({ error: "Auction not found" }, { status: 404 });
 
-    const updateData: Partial<{ currentPrice: number; endTime: Date; status: AuctionStatus }> = {};
+    const updateData: Partial<{ currentPrice: number; endTime: Date; status: AuctionStatus; endedAt: Date | null }> = {};
 
     if (bidAmount !== undefined) {
       if (typeof bidAmount !== "number" || isNaN(bidAmount) || bidAmount <= auction.currentPrice) {
@@ -61,6 +104,16 @@ export async function PATCH(req: NextRequest) {
     if (endTime) {
       updateData.endTime = new Date(endTime);
     }
+    
+    // ✅ อัปเดตสถานะโดยตรงถ้ามีการส่งค่ามา
+    if (status) {
+      updateData.status = status as AuctionStatus;
+      
+      // ถ้าสถานะเป็น CLOSED ให้บันทึกเวลาที่ปิด
+      if (status === "CLOSED" && !auction.endedAt) {
+        updateData.endedAt = new Date();
+      }
+    }
 
     const updatedAuction = await prisma.auction.update({
       where: { id },
@@ -71,7 +124,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({
       ...updatedAuction,
       card: updatedAuction.card ? { ...updatedAuction.card, imageUrl: getImageUrl(updatedAuction.card.imageUrl) } : null,
-      isClosed: updatedAuction.status === "CLOSED",
+      isClosed: updatedAuction.status === "CLOSED" || (updatedAuction.endTime && new Date(updatedAuction.endTime) < new Date()),
     });
   } catch (error) {
     console.error("🚨 Error updating auction:", error);
@@ -121,7 +174,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       message: "Auction closed successfully",
-      auction: { ...updatedAuction, isClosed: updatedAuction.status === "CLOSED" }
+      auction: { ...updatedAuction, isClosed: true }
     });
   } catch (error) {
     console.error("🚨 Error closing auction:", error);
