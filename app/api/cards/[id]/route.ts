@@ -2,19 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 
-export async function DELETE(req: NextRequest, { params }: { params: { id?: string } }) {
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const id = params.id?.trim(); // ป้องกัน space หรือ undefined
+    // Await the params promise to get the actual parameters.
+    const resolvedParams = await params;
+    const id = resolvedParams.id?.trim();
 
     if (!id) {
-      return NextResponse.json({ error: "Missing or invalid card ID" }, { status: 400 });
+      return NextResponse.json({ error: "Missing card ID" }, { status: 400 });
     }
 
     const cardExists = await prisma.card.count({
       where: { id },
     });
 
-    if (!cardExists) {
+    if (cardExists === 0) {
       return NextResponse.json({ error: "Card not found" }, { status: 404 });
     }
 
@@ -29,6 +34,10 @@ export async function DELETE(req: NextRequest, { params }: { params: { id?: stri
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       if (error.code === "P2025") {
         return NextResponse.json({ error: "Card not found or already deleted" }, { status: 404 });
+      } else if (error.code === "P2003") {
+        return NextResponse.json({ error: "Foreign key constraint failed" }, { status: 400 });
+      } else if (error.code === "P2021") {
+        return NextResponse.json({ error: "Table does not exist" }, { status: 500 });
       }
     }
 
