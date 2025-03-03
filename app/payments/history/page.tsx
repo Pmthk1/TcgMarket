@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 
 interface PaymentItem {
@@ -11,12 +12,15 @@ interface PaymentItem {
   items: { id: string; name: string; imageUrl: string; quantity: number }[];
 }
 
-const PaymentHistory = ({ params }: { params: { userId: string } }) => {
-  const { userId } = params;
+const PaymentHistory = () => {
+  const searchParams = useSearchParams();
+  const userId = searchParams.get("userId") || ""; // ดึง userId จาก URL
   const [history, setHistory] = useState<PaymentItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (!userId) return; // หยุดถ้าไม่มี userId
+
     const fetchHistory = async () => {
       try {
         const res = await fetch(`/api/payments/history?userId=${userId}`);
