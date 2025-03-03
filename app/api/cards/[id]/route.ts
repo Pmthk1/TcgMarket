@@ -1,19 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
-export async function DELETE(req: NextRequest, context: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: { id?: string } }) {
   try {
-    const { id } = context.params;
+    const id = params.id?.trim(); // ป้องกัน space หรือ undefined
 
     if (!id) {
-      return NextResponse.json({ error: "Missing card ID" }, { status: 400 });
+      return NextResponse.json({ error: "Missing or invalid card ID" }, { status: 400 });
     }
 
-    const card = await prisma.card.findUnique({
+    const cardExists = await prisma.card.count({
       where: { id },
     });
 
-    if (!card) {
+    if (!cardExists) {
       return NextResponse.json({ error: "Card not found" }, { status: 404 });
     }
 
@@ -23,7 +24,14 @@ export async function DELETE(req: NextRequest, context: { params: { id: string }
 
     return NextResponse.json({ message: "Card deleted successfully" }, { status: 200 });
   } catch (error) {
-    console.error(" Error deleting card:", error);
+    console.error("Error deleting card:", error);
+
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === "P2025") {
+        return NextResponse.json({ error: "Card not found or already deleted" }, { status: 404 });
+      }
+    }
+
     return NextResponse.json({ error: "Failed to delete card" }, { status: 500 });
   }
 }

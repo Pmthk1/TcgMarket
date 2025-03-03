@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 
 export interface CartItem {
-  id: string;
+  id: string | number; // ✅ รองรับทั้ง string และ number
   name: string;
   price: number;
   image: string;
@@ -13,9 +13,9 @@ export interface CartItem {
 interface CartContextType {
   cart: CartItem[];
   addToCart: (item: CartItem) => void;
-  removeFromCart: (id: string) => void;
+  removeFromCart: (id: string | number) => void;
   clearCart: () => void;
-  updateQuantity: (id: string, newQuantity: number) => void;
+  updateQuantity: (id: string | number, newQuantity: number) => void;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -23,28 +23,21 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [cart, setCart] = useState<CartItem[]>([]);
 
+  // ✅ โหลดข้อมูลจาก LocalStorage เมื่อ Component Mount
   useEffect(() => {
-    const storedCart = localStorage.getItem("cart");
-    if (storedCart) {
-      try {
+    try {
+      const storedCart = localStorage.getItem("cart");
+      if (storedCart) {
         const parsedCart: CartItem[] = JSON.parse(storedCart);
-        const uniqueCart = parsedCart.reduce((acc: CartItem[], item: CartItem) => {
-          const existingItem = acc.find((i) => i.id === item.id);
-          if (existingItem) {
-            existingItem.quantity += item.quantity;
-          } else {
-            acc.push(item);
-          }
-          return acc;
-        }, []);
-        setCart(uniqueCart);
-      } catch (err) {
-        console.error("Error parsing cart from localStorage", err);
-        setCart([]);
+        setCart(parsedCart);
       }
+    } catch (err) {
+      console.error("Error parsing cart from localStorage", err);
+      setCart([]);
     }
   }, []);
 
+  // ✅ บันทึกตะกร้าลง LocalStorage ทุกครั้งที่ `cart` เปลี่ยนแปลง
   useEffect(() => {
     localStorage.setItem("cart", JSON.stringify(cart));
   }, [cart]);
@@ -55,24 +48,22 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       if (existingItem) {
         return prevCart.map((cartItem) =>
           cartItem.id === item.id
-            ? { ...cartItem, quantity: cartItem.quantity + 1 }
+            ? { ...cartItem, quantity: cartItem.quantity + item.quantity }
             : cartItem
         );
       }
-      return [...prevCart, { ...item, quantity: 1 }];
+      return [...prevCart, { ...item }];
     });
   };
 
-  const updateQuantity = (id: string, newQuantity: number) => {
-    if (newQuantity < 1) return; // Prevent quantity from going below 1
+  const updateQuantity = (id: string | number, newQuantity: number) => {
+    if (newQuantity < 1) return; // ✅ ป้องกันค่าติดลบ
     setCart((prevCart) =>
-      prevCart.map((item) =>
-        item.id === id ? { ...item, quantity: newQuantity } : item
-      )
+      prevCart.map((item) => (item.id === id ? { ...item, quantity: newQuantity } : item))
     );
   };
 
-  const removeFromCart = (id: string) => {
+  const removeFromCart = (id: string | number) => {
     setCart((prevCart) => prevCart.filter((item) => item.id !== id));
   };
 

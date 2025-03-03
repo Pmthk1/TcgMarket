@@ -9,12 +9,13 @@ const Card7 = () => {
   const { addToCart } = useCart();
 
   const product = {
-    id: 'eevee',
+    id: '7', // 🔹 เปลี่ยนจาก number เป็น string
     name: 'อีวุย',
     price: 250,
     image: '/images/eevee.png',
     quantity: 1,
   };
+  
 
   const handleAddToCart = () => {
     addToCart(product);
