@@ -4,12 +4,10 @@ import { Prisma } from "@prisma/client";
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    // Await the params promise to get the actual parameters.
-    const resolvedParams = await params;
-    const id = resolvedParams.id?.trim();
+    const id = params.id?.trim();
 
     if (!id) {
       return NextResponse.json({ error: "Missing card ID" }, { status: 400 });
