@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { createClient } from "@supabase/supabase-js";
 
+// ✅ ตรวจสอบว่า ENV โหลดสำเร็จหรือไม่
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_KEY) {
+  console.error("🚨 Missing Supabase credentials in environment variables.");
+}
+
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_KEY!);
 
 // 📌 ดึงการ์ดทั้งหมด
@@ -28,13 +33,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "ข้อมูลไม่ครบถ้วน" }, { status: 400 });
     }
 
+    // ✅ ตรวจสอบว่า Supabase ถูกตั้งค่าหรือไม่
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_KEY) {
+      return NextResponse.json({ error: "Supabase configuration error" }, { status: 500 });
+    }
+
     // 🔹 อัปโหลดไฟล์ไปยัง Supabase Storage
     const filePath = `cards/${Date.now()}_${file.name}`;
-    const { data, error } = await supabase.storage.from("cards").upload(filePath, await file.arrayBuffer(), {
-      contentType: file.type,
-    });
+    const { data, error } = await supabase.storage
+      .from("cards")
+      .upload(filePath, await file.arrayBuffer(), { contentType: file.type });
 
-    if (error) throw error;
+    if (error) {
+      console.error("🚨 Supabase Storage Error:", error);
+      return NextResponse.json({ error: "ไม่สามารถอัปโหลดรูปภาพได้" }, { status: 500 });
+    }
 
     const imageUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/cards/${data.path}`;
 
