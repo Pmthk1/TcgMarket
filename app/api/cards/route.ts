@@ -38,6 +38,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Supabase configuration error" }, { status: 500 });
     }
 
+    // 📌 เพิ่ม log ตรวจสอบไฟล์ก่อนอัปโหลด
+    console.log("📂 Uploading file:", file.name, "Type:", file.type);
+
     // 🔹 อัปโหลดไฟล์ไปยัง Supabase Storage
     const filePath = `cards/${Date.now()}_${file.name}`;
     const { data, error } = await supabase.storage
@@ -48,6 +51,8 @@ export async function POST(req: NextRequest) {
       console.error("🚨 Supabase Storage Error:", error);
       return NextResponse.json({ error: "ไม่สามารถอัปโหลดรูปภาพได้" }, { status: 500 });
     }
+
+    console.log("✅ Uploaded file path:", data?.path);
 
     const imageUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/cards/${data.path}`;
 
