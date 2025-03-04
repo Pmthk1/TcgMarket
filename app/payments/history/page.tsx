@@ -1,7 +1,9 @@
+"use client"; // ทำให้ไฟล์นี้เป็น Client Component
+
 import { Suspense } from "react";
 import dynamic from "next/dynamic";
 
-const PaymentHistoryContent = dynamic(() => import("@/components/ui/PaymentHistoryContent"), { ssr: false });
+const PaymentHistoryContent = dynamic(() => import("@/components/ui/PaymentHistoryContent"));
 
 const PaymentHistoryPage = () => {
   return (
