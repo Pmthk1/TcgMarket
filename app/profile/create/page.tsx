@@ -1,74 +1,48 @@
 "use client";
 
-import { useUser } from "@clerk/nextjs";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
 import { createProfileAction } from "@/app/actions/createProfileAction";
 
-
-const CreatePage = () => {
-  const { user, isLoaded } = useUser();
+export default function CreateProfilePage() {
+  const [userName, setUserName] = useState("");
+  const [error, setError] = useState("");
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState("");
 
-  useEffect(() => {
-    if (!isLoaded) return;
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
 
-    console.log("User Data:", user);
+    const result = await createProfileAction(new FormData(e.target as HTMLFormElement));
 
-    if (user?.publicMetadata?.hasProfile) {
-      router.replace("/");
+    if (result?.error) {
+      setError(result.error);
     } else {
-      setLoading(false);
+      router.push("/");
     }
-  }, [user, isLoaded, router]);
-
-  if (loading) {
-    return <p>Loading...</p>;
-  }
+  };
 
   return (
-    <section className="flex justify-center items-start min-h-screen bg-gray-100 pt-16">
-      <div className="bg-white shadow-xl rounded-lg p-8 w-full max-w-lg">
-        <h1 className="text-3xl font-bold mb-7 text-center text-gray-800">
-          Create Your Profile
-        </h1>
-
-        {errorMessage && <p className="text-red-500 text-center">{errorMessage}</p>}
-
-        <form
-          onSubmit={async (e) => {
-            e.preventDefault();
-            setErrorMessage("");
-
-            const formData = new FormData(e.currentTarget);
-            console.log("📤 Form Data:", Object.fromEntries(formData.entries())); // ✅ Debugging
-
-            try {
-              const response = await createProfileAction(formData);
-              if (response?.error) {
-                setErrorMessage(response.error);
-              } else {
-                console.log("✅ Profile created, redirecting...");
-                router.replace("/");
-              }
-            } catch (error) {
-              setErrorMessage("Server error. Please try again.");
-              console.error("❌ Server error:", error);
-            }
-          }}
-          className="space-y-4"
+    <div className="flex items-center justify-center min-h-screen">
+      <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md w-96">
+        <h2 className="text-2xl font-bold mb-4 text-center">Create Your Profile</h2>
+        {error && <p className="text-red-500 text-center">{error}</p>}
+        <input
+          type="text"
+          name="userName"
+          value={userName}
+          onChange={(e) => setUserName(e.target.value)}
+          placeholder="Enter your name"
+          required
+          className="w-full border rounded px-3 py-2 mb-4"
+        />
+        <button
+          type="submit"
+          className="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600"
         >
-          <input name="userName" placeholder="Username" required className="border p-2 w-full" />
-
-          <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded">
-            Create Profile
-          </button>
-        </form>
-      </div>
-    </section>
+          Create Profile
+        </button>
+      </form>
+    </div>
   );
-};
-
-export default CreatePage;
+}

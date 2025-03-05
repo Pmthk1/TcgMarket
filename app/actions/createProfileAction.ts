@@ -1,12 +1,11 @@
 "use server";
 
 import { currentUser } from "@clerk/nextjs/server";
-import { clerkClient } from "@clerk/clerk-sdk-node";
 import { supabase } from "@/utils/supabase";
+import { redirect } from "next/navigation";
 
 export const createProfileAction = async (formData: FormData) => {
   const user = await currentUser();
-
   if (!user) {
     console.error("❌ Error: User not authenticated");
     return { error: "User not authenticated" };
@@ -17,29 +16,31 @@ export const createProfileAction = async (formData: FormData) => {
   const userName = formData.get("userName") as string;
   const createdAt = new Date().toISOString();
 
-  console.log("🟢 Creating profile for:", { userId, userName, email });
+  console.log("🟢 Checking existing profile for:", userId);
 
-  // ✅ ตรวจสอบก่อนว่ามีบัญชีอยู่แล้วหรือไม่
-  const { data: existingUser, error: fetchError } = await supabase
+  // 🔍 เช็คว่ามี profile อยู่แล้วหรือยัง
+  const { data: existingProfile, error: checkError } = await supabase
     .from("users")
-    .select("id")
+    .select("*")
     .eq("clerkId", userId)
     .single();
 
-  if (fetchError && fetchError.code !== "PGRST116") {
-    console.error("❌ Supabase fetch error:", fetchError.message);
+  if (checkError && checkError.code !== "PGRST116") {
+    console.error("❌ Failed to check existing profile:", checkError);
     return { error: "Failed to check existing profile" };
   }
 
-  if (existingUser) {
-    console.log("⚠️ Profile already exists, skipping creation.");
-    return { success: true };
+  if (existingProfile) {
+    console.log("✅ Profile already exists. Redirecting...");
+    return redirect("/");
   }
 
-  // ✅ บันทึกข้อมูลลง Supabase
+  console.log("🟢 Creating new profile...");
+  
+  // 📝 สร้าง profile ใหม่
   const { error: insertError } = await supabase.from("users").insert([
     {
-      clerkId: userId,
+      clerkId: userId, // ใช้ Clerk ID เป็น primary key
       username: userName,
       email: email,
       created_at: createdAt,
@@ -47,20 +48,10 @@ export const createProfileAction = async (formData: FormData) => {
   ]);
 
   if (insertError) {
-    console.error("❌ Supabase insert error:", insertError.message);
-    return { error: `Failed to save profile: ${insertError.message}` };
+    console.error("❌ Failed to create profile:", insertError);
+    return { error: "Failed to create profile" };
   }
 
-  // ✅ อัปเดต `publicMetadata.hasProfile` ใน Clerk
-  try {
-    await clerkClient.users.updateUser(userId, {
-      publicMetadata: { hasProfile: true },
-    });
-    console.log("✅ Clerk metadata updated.");
-  } catch (clerkError) {
-    console.error("❌ Clerk update error:", clerkError);
-    return { error: "Failed to update Clerk metadata" };
-  }
-
-  return { success: true };
+  console.log("✅ Profile created successfully. Redirecting...");
+  return redirect("/profile"); // 🏃‍♂️ หลังจากสร้างโปรไฟล์เสร็จให้ข้ามไปหน้า Profile เลย
 };
