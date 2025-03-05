@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createProfileAction } from "@/app/actions/createProfileAction";
 
 export default function CreateProfilePage() {
   const [userName, setUserName] = useState("");
@@ -13,17 +12,12 @@ export default function CreateProfilePage() {
     e.preventDefault();
     setError("");
 
-    const result = await createProfileAction(new FormData(e.target as HTMLFormElement));
-
-    if (result?.error) {
-      setError(result.error);
-    } else {
-      router.push("/");
-    }
+    // ข้ามการตรวจสอบ API แล้วไปหน้าหลักเลย
+    router.push("/");
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen">
+    <div className="flex items-center justify-center min-h-screen pt-10">
       <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md w-96">
         <h2 className="text-2xl font-bold mb-4 text-center">Create Your Profile</h2>
         {error && <p className="text-red-500 text-center">{error}</p>}
