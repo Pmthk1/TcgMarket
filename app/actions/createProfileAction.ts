@@ -20,7 +20,8 @@ export const createProfileAction = async (formData: FormData) => {
   console.log("🟢 Creating profile for:", { userId, userName, email });
 
   // ✅ บันทึกข้อมูลลง Supabase
-  const { error } = await supabase.from("User").insert([
+  const { error } = await supabase.from("users").insert([
+
     {
       clerkId: userId,  // ใช้ Clerk ID เป็น primary key
       username: userName,
