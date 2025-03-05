@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 export const createProfileAction = async (formData: FormData) => {
   const user = await currentUser();
   if (!user) {
-    console.error("❌ Error: User not authenticated");
+    console.error("❌ User not authenticated");
     return { error: "User not authenticated" };
   }
 
@@ -16,9 +16,9 @@ export const createProfileAction = async (formData: FormData) => {
   const userName = formData.get("userName") as string;
   const createdAt = new Date().toISOString();
 
-  console.log("🟢 Checking existing profile for:", userId);
+  console.log("🔍 Checking existing profile for:", userId);
 
-  // 🔍 เช็คว่ามี profile อยู่แล้วหรือยัง
+  // 🔍 ตรวจสอบว่ามีโปรไฟล์อยู่แล้วหรือไม่
   const { data: existingProfile, error: checkError } = await supabase
     .from("users")
     .select("*")
@@ -26,21 +26,21 @@ export const createProfileAction = async (formData: FormData) => {
     .single();
 
   if (checkError && checkError.code !== "PGRST116") {
-    console.error("❌ Failed to check existing profile:", checkError);
+    console.error("❌ Error checking profile:", checkError.message);
     return { error: "Failed to check existing profile" };
   }
 
   if (existingProfile) {
     console.log("✅ Profile already exists. Redirecting...");
-    return redirect("/");
+    redirect("/");
   }
 
   console.log("🟢 Creating new profile...");
-  
-  // 📝 สร้าง profile ใหม่
+
+  // 📝 สร้างโปรไฟล์ใหม่
   const { error: insertError } = await supabase.from("users").insert([
     {
-      clerkId: userId, // ใช้ Clerk ID เป็น primary key
+      clerkId: userId,
       username: userName,
       email: email,
       created_at: createdAt,
@@ -48,10 +48,10 @@ export const createProfileAction = async (formData: FormData) => {
   ]);
 
   if (insertError) {
-    console.error("❌ Failed to create profile:", insertError);
+    console.error("❌ Failed to create profile:", insertError.message);
     return { error: "Failed to create profile" };
   }
 
   console.log("✅ Profile created successfully. Redirecting...");
-  return redirect("/profile"); // 🏃‍♂️ หลังจากสร้างโปรไฟล์เสร็จให้ข้ามไปหน้า Profile เลย
+  redirect("/");
 };
