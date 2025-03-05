@@ -19,20 +19,36 @@ export const createProfileAction = async (formData: FormData) => {
 
   console.log("🟢 Creating profile for:", { userId, userName, email });
 
-  // ✅ บันทึกข้อมูลลง Supabase
-  const { error } = await supabase.from("users").insert([
+  // ✅ ตรวจสอบก่อนว่ามีบัญชีอยู่แล้วหรือไม่
+  const { data: existingUser, error: fetchError } = await supabase
+    .from("users")
+    .select("id")
+    .eq("clerkId", userId)
+    .single();
 
+  if (fetchError && fetchError.code !== "PGRST116") {
+    console.error("❌ Supabase fetch error:", fetchError.message);
+    return { error: "Failed to check existing profile" };
+  }
+
+  if (existingUser) {
+    console.log("⚠️ Profile already exists, skipping creation.");
+    return { success: true };
+  }
+
+  // ✅ บันทึกข้อมูลลง Supabase
+  const { error: insertError } = await supabase.from("users").insert([
     {
-      clerkId: userId,  // ใช้ Clerk ID เป็น primary key
+      clerkId: userId,
       username: userName,
       email: email,
       created_at: createdAt,
     },
   ]);
 
-  if (error) {
-    console.error("❌ Supabase error:", error.message);
-    return { error: "Failed to save profile in database" };
+  if (insertError) {
+    console.error("❌ Supabase insert error:", insertError.message);
+    return { error: `Failed to save profile: ${insertError.message}` };
   }
 
   // ✅ อัปเดต `publicMetadata.hasProfile` ใน Clerk

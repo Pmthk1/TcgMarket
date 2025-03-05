@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createProfileAction } from "@/app/actions/createProfileAction";
 
+
 const CreatePage = () => {
   const { user, isLoaded } = useUser();
   const router = useRouter();
@@ -42,6 +43,7 @@ const CreatePage = () => {
             setErrorMessage("");
 
             const formData = new FormData(e.currentTarget);
+            console.log("📤 Form Data:", Object.fromEntries(formData.entries())); // ✅ Debugging
 
             try {
               const response = await createProfileAction(formData);
