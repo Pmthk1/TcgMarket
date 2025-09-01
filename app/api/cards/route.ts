@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { supabase } from "@/utils/supabase"; // ✅ ใช้ Supabase จาก utils
+import { supabase } from "@/utils/supabase";
 
 // 📌 ดึงการ์ดทั้งหมด
 export async function GET() {
@@ -16,6 +16,15 @@ export async function GET() {
 // 📌 เพิ่มการ์ดใหม่ พร้อมอัปโหลดรูปภาพไปยัง Supabase
 export async function POST(req: NextRequest) {
   try {
+    // Check if Supabase client is configured
+    if (!supabase) {
+      console.error("🚨 Supabase client not configured");
+      return NextResponse.json(
+        { error: "Supabase client not configured" }, 
+        { status: 500 }
+      );
+    }
+
     const formData = await req.formData();
     const name = formData.get("name")?.toString();
     const category = formData.get("category")?.toString();
@@ -46,7 +55,16 @@ export async function POST(req: NextRequest) {
     console.log("✅ Uploaded file path:", data?.path);
 
     // ✅ สร้าง URL สำหรับแสดงรูป
-    const imageUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/cards/${data.path}`;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (!supabaseUrl) {
+      console.error("🚨 NEXT_PUBLIC_SUPABASE_URL not configured");
+      return NextResponse.json(
+        { error: "Supabase URL not configured" }, 
+        { status: 500 }
+      );
+    }
+
+    const imageUrl = `${supabaseUrl}/storage/v1/object/public/cards/${data.path}`;
 
     // ✅ บันทึกข้อมูลการ์ดลงฐานข้อมูล
     const newCard = await prisma.card.create({
