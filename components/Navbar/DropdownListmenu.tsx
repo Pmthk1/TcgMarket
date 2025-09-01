@@ -78,11 +78,6 @@ const DropdownListmenu: React.FC = () => {
                     Live Auctions
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/auctions/won" className="block px-3 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-md">
-                    Won Auctions
-                  </Link>
-                </DropdownMenuItem>
               </div>
             )}
 
@@ -105,12 +100,6 @@ const DropdownListmenu: React.FC = () => {
                 </DropdownMenuItem>
               </div>
             )}
-
-            <DropdownMenuItem asChild>
-              <Link href="/payments/history" className="block px-3 py-2 text-sm text-gray-800 hover:bg-gray-100 rounded-md">
-                Payments History
-              </Link>
-            </DropdownMenuItem>
 
             <DropdownMenuSeparator />
             <DropdownMenuItem

@@ -5,8 +5,6 @@ import Link from "next/link";
 
 const ReportsPage = () => {
   const [data, setData] = useState({
-    totalOrders: 0,
-    totalSales: 0,
     totalAuctions: 0,
     totalUsers: 0,
   });
@@ -34,12 +32,7 @@ const ReportsPage = () => {
       {loading ? (
         <p>กำลังโหลดข้อมูล...</p>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
-          <Link href="/admin/dashboard/reports/sales">
-            <div className="p-4 bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600 transition cursor-pointer">
-              ยอดขายรวม: ฿{data.totalSales.toLocaleString()}
-            </div>
-          </Link>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Link href="/admin/dashboard/reports/auctions">
             <div className="p-4 bg-green-500 text-white rounded-lg shadow-md hover:bg-green-600 transition cursor-pointer">
               จำนวนการประมูล: {data.totalAuctions} รายการ

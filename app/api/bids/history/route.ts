@@ -1,42 +1,71 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { currentUser } from "@clerk/nextjs/server";
 
-export async function GET() {
-  // ✅ รับ Session จาก NextAuth
-  const session = await getServerSession(authOptions);
+// ฟังก์ชันแปลง URL ของรูปภาพให้เป็น path ที่ client ใช้งานได้
+function processImageUrl(imageUrl?: string | null) {
+  if (!imageUrl) return null;
+  if (imageUrl.startsWith("http")) return imageUrl;
+  return imageUrl.startsWith("/") ? imageUrl : `/${imageUrl}`;
+}
 
-  if (!session || !session.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+// หา user จาก Clerk หรือสร้างใหม่ถ้ายังไม่มีใน DB
+async function getOrCreateUserByClerkId() {
+  const clerk = await currentUser();
+  if (!clerk) return null;
+
+  let user = await prisma.user.findUnique({ where: { clerkId: clerk.id } });
+  if (!user) {
+    const email = clerk.emailAddresses?.[0]?.emailAddress || `${clerk.id}@example.local`;
+    const usernameBase = clerk.username || clerk.firstName || "user";
+    const username = `${usernameBase}-${clerk.id.slice(0, 6)}`.toLowerCase();
+
+    user = await prisma.user.upsert({
+      where: { clerkId: clerk.id },
+      update: {},
+      create: {
+        clerkId: clerk.id,
+        email,
+        username,
+      },
+    });
   }
+  return user;
+}
 
+// ✅ GET: ดึงประวัติการประมูลของ user
+export async function GET() {
   try {
-    // ✅ ดึงข้อมูลการประมูลของผู้ใช้
+    const user = await getOrCreateUserByClerkId();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // ดึงประวัติการ bid ทั้งหมดของ user นี้ (ใหม่สุดก่อน)
     const bids = await prisma.bid.findMany({
-      where: { bidderId: session.user.id },
+      where: { bidderId: user.id },
       include: {
-        auction: {
-          include: { card: true },
-        },
+        auction: { include: { card: true } },
       },
       orderBy: { bidTime: "desc" },
     });
 
-    // ✅ แปลงข้อมูลให้เหมาะสม
-    const history = bids.map((bid) => ({
-      id: bid.id,
-      auctionId: bid.auction?.id ?? "",
-      title: bid.auction?.card?.name ?? bid.auction?.cardName ?? "ไม่มีชื่อ",
-      image: bid.auction?.card?.imageUrl ?? bid.auction?.imageUrl ?? "",
-      bidAmount: bid.amount,
-      status: bid.auction?.highestBidderId === session.user.id ? "ชนะ" : "แพ้",
-      createdAt: bid.bidTime.toISOString(),
+    // ✅ ไม่บีบเหลือกล่องเดียวอีกแล้ว
+    // เก็บ bid ของ user ทุกครั้งที่เคย bid
+    const items = bids.map((b) => ({
+      auctionId: b.auctionId,
+      cardName: b.auction.card?.name || b.auction.cardName,
+      imageUrl: processImageUrl(b.auction.imageUrl || b.auction.card?.imageUrl) || "",
+      startPrice: b.auction.startPrice,
+      lastBidAmount: b.amount,           // ราคาที่ user bid ตอนนั้น
+      lastBidTime: b.bidTime,            // เวลา bid
+      currentPrice: b.auction.currentPrice, // ราคาล่าสุดของ auction
+      status: b.auction.status,
     }));
 
-    return NextResponse.json(history);
+    return NextResponse.json(items);
   } catch (error) {
-    console.error("❌ Error fetching bid history:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    console.error("Error fetching bid history:", error);
+    return NextResponse.json({ error: "Failed to fetch bid history" }, { status: 500 });
   }
 }

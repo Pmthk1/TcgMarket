@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,9 @@ const Badge = ({ children, className }: { children: React.ReactNode; className?:
 
 type Auction = {
   id: string;
-  card?: { imageUrl?: string; name?: string };
+  // Some auctions store image on the auction itself, some on the card
+  imageUrl?: string | null;
+  card?: { imageUrl?: string | null; name?: string };
   startPrice?: number;
   currentPrice?: number;
   endTime?: string;
@@ -39,7 +41,26 @@ export default function AuctionDetailPage() {
   const [bidAmount, setBidAmount] = useState("");
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [imageError, setImageError] = useState(false);
-  const [fallbackImage, setFallbackImage] = useState<string | null>(null);
+
+  // 📍 แก้ไข: ฟังก์ชันสร้าง URL รูปภาพแบบง่าย
+  const getImageUrl = (imageUrl?: string | null) => {
+    if (!imageUrl) return null;
+    
+    // ถ้าเป็น URL เต็มแล้ว (http/https) ให้ใช้เลย
+    if (imageUrl.startsWith("http")) {
+      return imageUrl;
+    }
+    
+    // ถ้าเป็น path แบบ uploads/filename.ext ให้เพิ่ม / ข้างหน้า
+    const path = imageUrl.startsWith("/") ? imageUrl : `/${imageUrl}`;
+    // Keep the path stable to avoid reloading the image on every render
+    return path;
+  };
+
+  // Stable image URL computed once per value change to avoid reload loops
+  const displayImageUrl = useMemo(() => {
+    return getImageUrl(auction?.imageUrl ?? auction?.card?.imageUrl ?? null);
+  }, [auction?.imageUrl, auction?.card?.imageUrl]);
 
   useEffect(() => {
     if (!id) {
@@ -61,35 +82,12 @@ export default function AuctionDetailPage() {
         const data: Auction = await res.json();
         console.log("ข้อมูลประมูลที่ได้รับ:", data);
         
-        if (!data.card?.imageUrl && data.card?.name) {
-          try {
-            const imageRes = await fetch(`/api/find-images?cardName=${encodeURIComponent(data.card.name)}`);
-            if (imageRes.ok) {
-              const imageData = await imageRes.json();
-              setFallbackImage(imageData.imageUrl || `/uploads/${data.card.name.toLowerCase().replace(/\s+/g, '-')}.png?t=${Date.now()}`);
-            }
-          } catch (imgErr) {
-            console.error("ไม่สามารถค้นหารูปภาพจากชื่อการ์ดได้:", imgErr);
-          }
-        }
-
         setAuction(data);
         setError("");
 
         if (data.endTime) {
           const auctionEndTime = new Date(data.endTime).getTime();
           setTimeLeft(auctionEndTime - Date.now());
-
-          const interval = setInterval(() => {
-            const remainingTime = auctionEndTime - Date.now();
-            setTimeLeft(remainingTime);
-            if (remainingTime <= 0) {
-              clearInterval(interval);
-              router.push("/auctions/closed");
-            }
-          }, 1000);
-
-          return () => clearInterval(interval);
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "ไม่สามารถโหลดข้อมูลการประมูลได้");
@@ -100,6 +98,16 @@ export default function AuctionDetailPage() {
 
     fetchAuction();
   }, [id, router]);
+
+  // Maintain a ticking countdown with cleanup independent of fetch/render.
+  useEffect(() => {
+    if (!auction?.endTime) return;
+    const auctionEndTime = new Date(auction.endTime).getTime();
+    const update = () => setTimeLeft(auctionEndTime - Date.now());
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [auction?.endTime]);
 
   const placeBid = async () => {
     if (!auction || auction.isClosed || auction.status === "CLOSED") {
@@ -135,10 +143,6 @@ export default function AuctionDetailPage() {
     } catch (error) {
       alert(error instanceof Error ? error.message : "เกิดข้อผิดพลาดในการเสนอราคา");
     }
-  };
-
-  const handleImageError = () => {
-    setImageError(true);
   };
 
   if (loading) {
@@ -180,8 +184,12 @@ export default function AuctionDetailPage() {
     );
   }
 
-  const imageUrl = !imageError && auction.card?.imageUrl ? auction.card.imageUrl : fallbackImage;
-  const isAuctionClosed = auction.isClosed || auction.status === "CLOSED" || (timeLeft !== null && timeLeft <= 0);
+  // Prefer auction.imageUrl, then fall back to card.imageUrl
+  const isAuctionClosed = !!(
+    auction?.isClosed ||
+    auction?.status === "CLOSED" ||
+    (timeLeft !== null && timeLeft <= 0)
+  );
 
   return (
     <div className="container mx-auto p-4 max-w-6xl">
@@ -196,15 +204,16 @@ export default function AuctionDetailPage() {
         <div className="flex flex-col md:flex-row">
           {/* Card Image Section */}
           <div className="md:w-1/2 p-4 flex items-center justify-center bg-gradient-to-b from-gray-100 to-gray-200">
-            {imageUrl ? (
+            {displayImageUrl && !imageError ? (
               <div className="relative w-full max-w-md h-96 transition-transform hover:scale-105">
                 <Image
-                  src={imageUrl}
+                  src={displayImageUrl}
                   alt={auction.card?.name || "สินค้าประมูล"}
                   fill
                   className="rounded-lg object-contain drop-shadow-md"
                   unoptimized
-                  onError={handleImageError}
+                  priority
+                  onError={() => setImageError(true)}
                 />
                 {isAuctionClosed && (
                   <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-lg">
@@ -213,8 +222,19 @@ export default function AuctionDetailPage() {
                 )}
               </div>
             ) : (
-              <div className="flex items-center justify-center w-full h-64 bg-gray-200 rounded-lg">
-                <p className="text-gray-500">ไม่มีรูปภาพ</p>
+              <div className="flex flex-col items-center justify-center w-full h-64 bg-gray-200 rounded-lg">
+                <div className="text-8xl mb-4">🎴</div>
+                <p className="text-gray-500 mb-2">ไม่มีรูปภาพ</p>
+                <p className="text-sm text-gray-400 text-center px-4">{auction.card?.name || "ไม่ทราบชื่อสินค้า"}</p>
+                {/* Debug info - แสดงเฉพาะใน development */}
+                {process.env.NODE_ENV === 'development' && (
+                  <div className="mt-4 text-xs text-gray-400 text-center">
+                    <p>Debug: auction.imageUrl = {auction.imageUrl || "null"}</p>
+                    <p>Debug: card.imageUrl = {auction.card?.imageUrl || "null"}</p>
+                    <p>Debug: displayImageUrl = {displayImageUrl || "null"}</p>
+                    <p>Debug: imageError = {imageError.toString()}</p>
+                  </div>
+                )}
               </div>
             )}
           </div>

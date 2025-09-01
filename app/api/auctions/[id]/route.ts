@@ -1,15 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { AuctionStatus, Auction, Card } from "@prisma/client";
-
-// Define extended Card type with potentially nullable imageUrl (based on your actual data model)
-type CardWithNullableImage = Omit<Card, 'imageUrl'> & {
-  imageUrl: string | null;
-};
+import { currentUser } from "@clerk/nextjs/server";
 
 // Define the type for auction with its related card
 type AuctionWithCard = Auction & {
-  card: CardWithNullableImage | null;
+  card: Card | null;
 };
 
 // Define the type for the return value which includes additional properties
@@ -17,17 +13,29 @@ type AuctionWithCardAndExtra = AuctionWithCard & {
   isClosed: boolean;
 };
 
-// ฟังก์ชันช่วยสร้าง URL ของรูปภาพ
-const getImageUrl = (imagePath?: string | null) => {
-  if (!imagePath) return null;
-  if (imagePath.startsWith("http")) return imagePath;
-  const path = imagePath.startsWith("/")
-    ? imagePath
-    : imagePath.startsWith("uploads/")
-    ? `/${imagePath}`
-    : `/uploads/${imagePath}`;
-  return `${path}?t=${Date.now()}`;
+// 📍 แก้ไข: ฟังก์ชันจัดการรูปภาพแบบง่าย (ไม่เดา ไม่หา)
+const processImageUrl = (imageUrl?: string | null) => {
+  if (!imageUrl) return null;
+  
+  // ถ้าเป็น URL เต็มแล้ว (http/https) ให้ใช้เลย
+  if (imageUrl.startsWith("http")) {
+    return imageUrl;
+  }
+  
+  // ถ้าเป็น path ในรูปแบบ uploads/filename.ext ให้เพิ่ม / ข้างหน้า
+  const path = imageUrl.startsWith("/") ? imageUrl : `/${imageUrl}`;
+  // Return a stable URL; no cache-busting query string here.
+  return path;
 };
+
+// Resolve the effective image URL, preferring auction.imageUrl then card.imageUrl
+const resolveImageUrl = (auction: AuctionWithCard) => {
+  const src = (auction.imageUrl && auction.imageUrl.trim() !== "")
+    ? auction.imageUrl
+    : (auction.card?.imageUrl ?? null);
+  return processImageUrl(src);
+};
+
 
 // ✅ ฟังก์ชันตรวจสอบและอัปเดตสถานะประมูลตามเวลา
 async function checkAndUpdateAuctionStatus(auction: AuctionWithCard): Promise<AuctionWithCardAndExtra> {
@@ -44,19 +52,28 @@ async function checkAndUpdateAuctionStatus(auction: AuctionWithCard): Promise<Au
       include: { card: true }
     });
     
+    // 📍 แก้ไข: ใช้ processImageUrl แทน
+    const processedImageUrl = resolveImageUrl(updatedAuction);
+    
     return {
       ...updatedAuction,
-      card: updatedAuction.card ? { ...updatedAuction.card, imageUrl: getImageUrl(updatedAuction.card.imageUrl) } : null,
+      imageUrl: processedImageUrl || '',
+      card: updatedAuction.card ? { ...updatedAuction.card, imageUrl: processedImageUrl || '' } : null,
       isClosed: true
     };
   }
   
+  // 📍 แก้ไข: ใช้ processImageUrl แทน
+  const processedImageUrl = resolveImageUrl(auction);
+  
   return {
     ...auction,
-    card: auction.card ? { ...auction.card, imageUrl: getImageUrl(auction.card.imageUrl) } : null,
+    imageUrl: processedImageUrl || '',
+    card: auction.card ? { ...auction.card, imageUrl: processedImageUrl || '' } : null,
     isClosed: auction.status === "CLOSED" || (auction.endTime && new Date(auction.endTime) < new Date())
   };
 }
+  
 
 // ✅ API: ดึงข้อมูลการประมูล
 export async function GET(req: NextRequest) {
@@ -65,12 +82,22 @@ export async function GET(req: NextRequest) {
     if (!id) return NextResponse.json({ error: "Auction ID is required" }, { status: 400 });
 
     console.log("🔍 Fetching auction with ID:", id);
-    const auction = await prisma.auction.findUnique({ where: { id }, include: { card: true } });
+    const auction = await prisma.auction.findUnique({ 
+      where: { id }, 
+      include: { card: true } 
+    });
 
     if (!auction) return NextResponse.json({ error: "Auction not found" }, { status: 404 });
 
     // ตรวจสอบและอัปเดตสถานะตามเวลา
     const updatedAuction = await checkAndUpdateAuctionStatus(auction);
+
+    console.log("✅ Auction data processed:", {
+      id: updatedAuction.id,
+      cardName: updatedAuction.card?.name,
+      originalImageUrl: auction.card?.imageUrl,
+      processedImageUrl: updatedAuction.card?.imageUrl
+    });
 
     return NextResponse.json(updatedAuction);
   } catch (error) {
@@ -99,6 +126,27 @@ export async function PATCH(req: NextRequest) {
       }
       updateData.currentPrice = bidAmount;
       updateData.status = AuctionStatus.ACTIVE;
+      // Associate the highest bidder with the current Clerk user
+      const clerk = await currentUser();
+      if (clerk) {
+        let user = await prisma.user.findUnique({ where: { clerkId: clerk.id } });
+        if (!user) {
+          const email = clerk.emailAddresses?.[0]?.emailAddress || `${clerk.id}@example.local`;
+          const usernameBase = clerk.username || clerk.firstName || "user";
+          const username = `${usernameBase}-${clerk.id.slice(0, 6)}`.toLowerCase();
+          try {
+            user = await prisma.user.create({ data: { clerkId: clerk.id, email, username } });
+          } catch {
+            user = await prisma.user.upsert({
+              where: { clerkId: clerk.id },
+              update: {},
+              create: { clerkId: clerk.id, email: `${clerk.id}@example.local`, username: `user-${clerk.id.slice(0,8)}` },
+            });
+          }
+        }
+        // tie highest bidder to auction
+        (updateData as any).highestBidderId = user.id;
+      }
     }
 
     if (endTime) {
@@ -121,9 +169,30 @@ export async function PATCH(req: NextRequest) {
       include: { card: true },
     });
 
+    // Record a bid item when a bid was placed successfully
+    if (bidAmount !== undefined) {
+      const clerk = await currentUser();
+      if (clerk) {
+        const user = await prisma.user.findUnique({ where: { clerkId: clerk.id } });
+        if (user) {
+          await prisma.bid.create({
+            data: {
+              auctionId: id,
+              bidderId: user.id,
+              amount: bidAmount,
+            },
+          });
+        }
+      }
+    }
+
+    // 📍 แก้ไข: ใช้ processImageUrl แทน
+    const processedImageUrl = resolveImageUrl(updatedAuction);
+
     return NextResponse.json({
       ...updatedAuction,
-      card: updatedAuction.card ? { ...updatedAuction.card, imageUrl: getImageUrl(updatedAuction.card.imageUrl) } : null,
+      imageUrl: processedImageUrl || '',
+      card: updatedAuction.card ? { ...updatedAuction.card, imageUrl: processedImageUrl || '' } : null,
       isClosed: updatedAuction.status === "CLOSED" || (updatedAuction.endTime && new Date(updatedAuction.endTime) < new Date()),
     });
   } catch (error) {
