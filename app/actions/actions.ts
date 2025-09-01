@@ -1,15 +1,19 @@
 "use server";
-
 import { currentUser } from "@clerk/nextjs/server";
-import { clerkClient } from "@clerk/clerk-sdk-node"; // ✅ ใช้ Clerk SDK
+import { clerkClient } from "@clerk/nextjs/server";
 import { supabase } from "@/utils/supabase";
 
 export const createProfileAction = async (formData: FormData) => {
   const user = await currentUser();
-
   if (!user) {
     console.error("Error: User not authenticated");
     return { error: "User not authenticated" };
+  }
+
+  // ✅ Check if supabase is configured
+  if (!supabase) {
+    console.error("Error: Supabase not configured");
+    return { error: "Database not configured" };
   }
 
   const userId = user.id;
@@ -37,7 +41,8 @@ export const createProfileAction = async (formData: FormData) => {
 
   // ✅ อัปเดต `publicMetadata.hasProfile` ใน Clerk
   try {
-    await clerkClient.users.updateUser(userId, {
+    const client = await clerkClient();
+    await client.users.updateUser(userId, {
       publicMetadata: { hasProfile: true },
     });
     console.log("✅ Clerk publicMetadata updated successfully.");
