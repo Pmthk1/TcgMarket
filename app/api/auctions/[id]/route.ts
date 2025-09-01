@@ -13,6 +13,15 @@ type AuctionWithCardAndExtra = AuctionWithCard & {
   isClosed: boolean;
 };
 
+// Define proper update data type
+type AuctionUpdateData = {
+  currentPrice?: number;
+  endTime?: Date;
+  status?: AuctionStatus;
+  endedAt?: Date | null;
+  highestBidderId?: string;
+};
+
 // 📍 แก้ไข: ฟังก์ชันจัดการรูปภาพแบบง่าย (ไม่เดา ไม่หา)
 const processImageUrl = (imageUrl?: string | null) => {
   if (!imageUrl) return null;
@@ -118,7 +127,7 @@ export async function PATCH(req: NextRequest) {
     const auction = await prisma.auction.findUnique({ where: { id }, include: { card: true } });
     if (!auction) return NextResponse.json({ error: "Auction not found" }, { status: 404 });
 
-    const updateData: Partial<{ currentPrice: number; endTime: Date; status: AuctionStatus; endedAt: Date | null }> = {};
+    const updateData: AuctionUpdateData = {};
 
     if (bidAmount !== undefined) {
       if (typeof bidAmount !== "number" || isNaN(bidAmount) || bidAmount <= auction.currentPrice) {
@@ -145,7 +154,7 @@ export async function PATCH(req: NextRequest) {
           }
         }
         // tie highest bidder to auction
-        (updateData as any).highestBidderId = user.id;
+        updateData.highestBidderId = user.id;
       }
     }
 
