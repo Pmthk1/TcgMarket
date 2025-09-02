@@ -1,4 +1,8 @@
-import { clerkClient } from "@clerk/clerk-sdk-node";
+import { createClerkClient } from "@clerk/backend";
+
+const clerkClient = createClerkClient({
+  secretKey: process.env.CLERK_SECRET_KEY,
+});
 
 /**
  * อัปเดต Public Metadata ของผู้ใช้ใน Clerk
@@ -15,7 +19,6 @@ export const updateUserMetadata = async (
         ...metadata,
       },
     });
-
     console.log(`✅ Updated public metadata for user ${userId}:`, user.publicMetadata);
   } catch (error) {
     console.error(`❌ Failed to update metadata for user ${userId}:`, error);
