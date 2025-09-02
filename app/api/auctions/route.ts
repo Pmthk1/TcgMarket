@@ -1,15 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/prisma";  
-import { writeFile } from "fs/promises";
-import fs from "fs";
-import path from "path";
-
-const uploadDir = path.join(process.cwd(), "public/uploads");
-
-// ตรวจสอบและสร้างโฟลเดอร์ `/public/uploads/` ถ้ายังไม่มี
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+import prisma from "@/lib/prisma";
+import { createClient } from "@supabase/supabase-js";
 
 // ✅ GET: ดึงรายการประมูลทั้งหมด (รวมข้อมูลการ์ด)
 export async function GET() {
@@ -32,7 +23,7 @@ export async function GET() {
   }
 }
 
-// ✅ POST: สร้างการประมูลใหม่ พร้อมอัปโหลดรูปภาพ
+// ✅ POST: สร้างการประมูลใหม่ พร้อมอัปโหลดรูปภาพไปยัง Supabase Storage
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
@@ -81,7 +72,7 @@ export async function POST(req: Request) {
 
     cardId = card.id;
 
-    // 🔹 บันทึกไฟล์ภาพ
+    // 🔹 อัปโหลดไฟล์ภาพไปยัง Supabase Storage
     let imageUrl = "";
     if (image) {
       try {
@@ -90,18 +81,43 @@ export async function POST(req: Request) {
           return NextResponse.json({ error: "Invalid file type. Only images are allowed." }, { status: 400 });
         }
 
-        const bytes = await image.arrayBuffer();
-        const buffer = Buffer.from(bytes);
+        // ✅ ตรวจสอบตัวแปรสภาพแวดล้อม
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-        // ✅ ป้องกันชื่อไฟล์ซ้ำ
-        const fileExt = path.extname(image.name);
-        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}${fileExt}`;
-        const filePath = path.join(uploadDir, fileName);
+        if (!supabaseUrl || !supabaseAnonKey) {
+          console.error("🚨 Missing Supabase environment variables");
+          return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+        }
 
-        await writeFile(filePath, buffer);
-        imageUrl = `/uploads/${fileName}`;
-      } catch {
-        console.error("🚨 Image upload failed");
+        // ✅ สร้าง Supabase client
+        const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+        // ✅ สร้างชื่อไฟล์ที่ไม่ซ้ำ
+        const fileExt = image.name.split('.').pop() || 'jpg';
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+        // ✅ แปลงไฟล์เป็น ArrayBuffer
+        const arrayBuffer = await image.arrayBuffer();
+
+        // ✅ อัปโหลดไปยัง Supabase Storage
+        const { data, error } = await supabase.storage
+          .from('auction-images')
+          .upload(fileName, arrayBuffer, {
+            contentType: image.type,
+            upsert: false
+          });
+
+        if (error) {
+          console.error("🚨 Supabase upload error:", error);
+          return NextResponse.json({ error: "Image upload failed" }, { status: 500 });
+        }
+
+        // ✅ สร้าง public URL
+        imageUrl = `${supabaseUrl}/storage/v1/object/public/auction-images/${data.path}`;
+
+      } catch (error) {
+        console.error("🚨 Image upload failed:", error);
         return NextResponse.json({ error: "Image upload failed" }, { status: 500 });
       }
     }
