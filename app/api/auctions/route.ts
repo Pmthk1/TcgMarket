@@ -82,16 +82,18 @@ export async function POST(req: Request) {
         }
 
         // ✅ ตรวจสอบตัวแปรสภาพแวดล้อม
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-        if (!supabaseUrl || !supabaseAnonKey) {
+        if (!supabaseUrl || !supabaseServiceKey) {
           console.error("🚨 Missing Supabase environment variables");
           return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
         }
 
-        // ✅ สร้าง Supabase client
-        const supabase = createClient(supabaseUrl, supabaseAnonKey);
+        // ✅ สร้าง Supabase client with service role key
+        const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+          auth: { persistSession: false }
+        });
 
         // ✅ สร้างชื่อไฟล์ที่ไม่ซ้ำ
         const fileExt = image.name.split('.').pop() || 'jpg';
