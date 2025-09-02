@@ -1,42 +1,58 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import prisma from "@/lib/prisma";
 
 export async function POST(req: NextRequest) {
   try {
-    // ตรวจสอบ environment variables
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
     if (!supabaseUrl || !supabaseKey) {
-      console.error("Missing Supabase configuration");
       return NextResponse.json(
-        { error: "Supabase client not configured" },
+        { error: "Supabase not configured" },
         { status: 500 }
       );
     }
 
-    // สร้าง Supabase client
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const formData = await req.formData();
     const file = formData.get("file") as File;
+    const auctionId = formData.get("auctionId") as string | null;
+    const cardId = formData.get("cardId") as string | null;
 
     if (!file) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
     }
 
-    // กำหนดชื่อไฟล์แบบไม่ซ้ำ
-    const filePath = `auction-images/${Date.now()}-${file.name}`;
+    const filePath = `${Date.now()}-${file.name}`;
 
-    // อัปโหลดไฟล์ไปยัง Supabase Storage
-    const { data, error } = await supabase.storage
+    const { error: uploadError } = await supabase.storage
       .from("auction-images")
       .upload(filePath, await file.arrayBuffer(), { contentType: file.type });
 
-    if (error) throw error;
+    if (uploadError) throw uploadError;
 
-    // สร้าง URL รูปภาพที่สามารถเข้าถึงได้
-    const imageUrl = `${supabaseUrl}/storage/v1/object/public/auction-images/${data.path}`;
+    // ✅ ใช้ getPublicUrl() แทนการต่อ string เอง
+    const { data: urlData } = supabase.storage
+      .from("auction-images")
+      .getPublicUrl(filePath);
+
+    const imageUrl = urlData.publicUrl;
+
+    // ✅ บันทึกลง DB (แล้วแต่ context)
+    if (auctionId) {
+      await prisma.auction.update({
+        where: { id: auctionId },
+        data: { imageUrl },
+      });
+    }
+    if (cardId) {
+      await prisma.card.update({
+        where: { id: cardId },
+        data: { imageUrl },
+      });
+    }
 
     return NextResponse.json({ imageUrl }, { status: 200 });
   } catch (error) {
