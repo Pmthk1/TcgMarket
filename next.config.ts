@@ -5,10 +5,10 @@ const nextConfig = {
       // Clerk
       { protocol: "https", hostname: "img.clerk.com" },
 
-      // ✅ Supabase public storage (ระบุโปรเจกต์ของคุณให้ชัดเจน + จำกัด path)
+      // ✅ Supabase public storage (ใช้ hostname ของโปรเจกต์คุณจริง ๆ)
       {
         protocol: "https",
-        hostname: "wwwdtcmxpfczpjschoqm.supabase.co",
+        hostname: "zupzeynznuvdaqhmschv.supabase.co",
         pathname: "/storage/v1/object/public/**",
       },
 
