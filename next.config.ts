@@ -2,26 +2,22 @@
 const nextConfig = {
   images: {
     remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "img.clerk.com",
-      },
+      // Clerk
+      { protocol: "https", hostname: "img.clerk.com" },
+
+      // ✅ Supabase public storage (ระบุโปรเจกต์ของคุณให้ชัดเจน + จำกัด path)
       {
         protocol: "https",
         hostname: "wwwdtcmxpfczpjschoqm.supabase.co",
+        pathname: "/storage/v1/object/public/**",
       },
-      {
-        protocol: "https",
-        hostname: "promptpay.io",
-      },
-      {
-        protocol: "https",
-        hostname: "example.com", // ✅ เพิ่มโดเมนที่มีปัญหา
-      },
-      {
-        protocol: "http",
-        hostname: "localhost",
-      },
+
+      // PromptPay
+      { protocol: "https", hostname: "promptpay.io" },
+
+      // Local dev
+      { protocol: "http", hostname: "localhost" },
+      { protocol: "https", hostname: "localhost" },
     ],
   },
 };

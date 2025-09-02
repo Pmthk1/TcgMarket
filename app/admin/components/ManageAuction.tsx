@@ -4,61 +4,66 @@ import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card as UICard, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import useSWR from "swr";
 
-interface Card {
+interface CardInfo {
   id: string;
   name: string;
   type: string;
   startingPrice: number;
-  imageUrl?: string;
+  imageUrl?: string | null; // ควรเป็น public URL เต็มของ Supabase
 }
 
 interface Auction {
   id: string;
-  cardName?: string;
-  cardType?: string;
+  cardName?: string | null;
+  cardType?: string | null;
   title: string;
   description: string;
-  imageUrl: string;
+  imageUrl: string | null;
   status: string;
-  startingPrice?: number;
+  startingPrice?: number | null;
   currentPrice: number;
   endTime: string;
   createdAt: string;
   endedAt: string | null;
   isClosed: boolean;
-  card?: Card;
+  card?: CardInfo | null;
 }
 
 type AuctionStatus = "PENDING" | "ACTIVE" | "CLOSED";
 
-// SWR fetcher function
+// ---- helpers ----
 const fetcher = async (url: string) => {
   const res = await fetch(url);
-  if (!res.ok) {
-    const error = new Error("เกิดข้อผิดพลาดในการดึงข้อมูล");
-    throw error;
-  }
+  if (!res.ok) throw new Error("เกิดข้อผิดพลาดในการดึงข้อมูล");
   return res.json();
 };
+
+const safeImageUrl = (auction?: Auction) => {
+  const url =
+    auction?.card?.imageUrl?.trim() ||
+    auction?.imageUrl?.trim() ||
+    "";
+  return url || "/no-image.png";
+};
+
+const isHttp = (url: string) => url.startsWith("http");
+// -----------------
 
 export default function ManageAuction() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const id = searchParams.get("id");
-  
+
   const [endTime, setEndTime] = useState<string>("");
   const [loading, setLoading] = useState({ delete: false, close: false, update: false });
-  
+
   const { data: auction, error, mutate } = useSWR<Auction>(
-    id ? `/api/auctions/${id}` : null, 
-    fetcher, 
-    { 
-      refreshInterval: 5000,
-      revalidateOnFocus: true
-    }
+    id ? `/api/auctions/${id}` : null,
+    fetcher,
+    { refreshInterval: 5000, revalidateOnFocus: true }
   );
 
   useEffect(() => {
@@ -73,12 +78,11 @@ export default function ManageAuction() {
     try {
       const res = await fetch(`/api/auctions/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("ไม่สามารถลบการประมูลได้");
-
       alert("ลบการประมูลเรียบร้อยแล้ว");
       router.push("/admin/auctions");
-    } catch (error) {
-      console.error("เกิดข้อผิดพลาดในการลบการประมูล:", error);
-      alert(error instanceof Error ? error.message : "เกิดข้อผิดพลาดในการลบการประมูล");
+    } catch (err) {
+      console.error("เกิดข้อผิดพลาดในการลบการประมูล:", err);
+      alert(err instanceof Error ? err.message : "เกิดข้อผิดพลาดในการลบการประมูล");
     } finally {
       setLoading((prev) => ({ ...prev, delete: false }));
     }
@@ -88,19 +92,17 @@ export default function ManageAuction() {
     if (!id || !confirm("คุณต้องการปิดการประมูลนี้หรือไม่?")) return;
     setLoading((prev) => ({ ...prev, close: true }));
     try {
-      const res = await fetch(`/api/auctions/${id}`, { 
+      const res = await fetch(`/api/auctions/${id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "close" })
+        body: JSON.stringify({ action: "close" }),
       });
-      
       if (!res.ok) throw new Error("ไม่สามารถปิดการประมูลได้");
-
       alert("ปิดการประมูลเรียบร้อยแล้ว");
       await mutate();
-    } catch (error) {
-      console.error("เกิดข้อผิดพลาดในการปิดการประมูล:", error);
-      alert(error instanceof Error ? error.message : "เกิดข้อผิดพลาดในการปิดการประมูล");
+    } catch (err) {
+      console.error("เกิดข้อผิดพลาดในการปิดการประมูล:", err);
+      alert(err instanceof Error ? err.message : "เกิดข้อผิดพลาดในการปิดการประมูล");
     } finally {
       setLoading((prev) => ({ ...prev, close: false }));
     }
@@ -116,12 +118,11 @@ export default function ManageAuction() {
         body: JSON.stringify({ endTime }),
       });
       if (!res.ok) throw new Error("ไม่สามารถอัปเดตเวลาสิ้นสุดการประมูลได้");
-
       alert("อัปเดตเวลาสิ้นสุดการประมูลเรียบร้อยแล้ว");
       await mutate();
-    } catch (error) {
-      console.error("เกิดข้อผิดพลาดในการอัปเดตเวลาสิ้นสุดการประมูล:", error);
-      alert(error instanceof Error ? error.message : "เกิดข้อผิดพลาดในการอัปเดตเวลา");
+    } catch (err) {
+      console.error("เกิดข้อผิดพลาดในการอัปเดตเวลาสิ้นสุดการประมูล:", err);
+      alert(err instanceof Error ? err.message : "เกิดข้อผิดพลาดในการอัปเดตเวลา");
     } finally {
       setLoading((prev) => ({ ...prev, update: false }));
     }
@@ -129,7 +130,12 @@ export default function ManageAuction() {
 
   if (!id) return <p>ไม่ได้เลือกการประมูล</p>;
   if (!auction) return <p>กำลังโหลด...</p>;
-  if (error) return <p className="text-red-500">ข้อผิดพลาด: {error instanceof Error ? error.message : "เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ"}</p>;
+  if (error)
+    return (
+      <p className="text-red-500">
+        ข้อผิดพลาด: {error instanceof Error ? error.message : "เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ"}
+      </p>
+    );
 
   const isAuctionClosed =
     auction.status === "CLOSED" ||
@@ -140,18 +146,19 @@ export default function ManageAuction() {
   const statusThai: Record<AuctionStatus, string> = {
     PENDING: "รอดำเนินการ",
     ACTIVE: "กำลังประมูล",
-    CLOSED: "ปิดการประมูลแล้ว"
+    CLOSED: "ปิดการประมูลแล้ว",
   };
 
-  const getThaiStatus = (status: string): string => {
-    return (statusThai as Record<string, string>)[status] || status;
-  };
+  const getThaiStatus = (status: string): string =>
+    (statusThai as Record<string, string>)[status] || status;
 
   const displayStatus = isAuctionClosed ? "CLOSED" : auction.status;
+  const img = safeImageUrl(auction);
+  const imgIsHttp = isHttp(img);
 
   return (
     <div className="max-w-3xl mx-auto p-6">
-      <Card>
+      <UICard>
         <CardHeader>
           <CardTitle>จัดการการประมูล</CardTitle>
         </CardHeader>
@@ -191,9 +198,7 @@ export default function ManageAuction() {
                 เวลาสิ้นสุดการประมูล: {new Date(auction.endTime).toLocaleString("th-TH")}
               </p>
               <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700">
-                  วันที่และเวลาสิ้นสุด:
-                </label>
+                <label className="block text-sm font-medium text-gray-700">วันที่และเวลาสิ้นสุด:</label>
                 <input
                   type="datetime-local"
                   value={endTime}
@@ -210,23 +215,21 @@ export default function ManageAuction() {
                 </Button>
               </div>
             </div>
+
             <div>
-              {auction.imageUrl ? (
-                <Image
-                  src={auction.imageUrl}
-                  alt={auction.title || "รูปภาพการประมูล"}
-                  width={500}
-                  height={300}
-                  className="w-full rounded-lg shadow-md object-cover"
-                  priority
-                />
-              ) : (
-                <div className="w-full h-40 bg-gray-200 flex items-center justify-center rounded-lg">
-                  <p className="text-gray-500">ไม่มีรูปภาพ</p>
-                </div>
-              )}
+              <Image
+                src={img}
+                alt={auction.title || "รูปภาพการประมูล"}
+                width={500}
+                height={300}
+                className="w-full rounded-lg shadow-md object-cover"
+                priority
+                // ให้ optimizer ทำงานเฉพาะตอนเป็น http(s)
+                unoptimized={!imgIsHttp}
+              />
             </div>
           </div>
+
           <div className="flex gap-4 mt-6">
             <Button
               variant="outline"
@@ -255,7 +258,7 @@ export default function ManageAuction() {
             </Button>
           </div>
         </CardContent>
-      </Card>
+      </UICard>
     </div>
   );
 }
