@@ -1,13 +1,23 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-// กำหนดค่า Supabase URL และ Key
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseKey);
-
 export async function GET() {
   try {
+    // ตรวจสอบ environment variables
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+      console.error("Missing Supabase configuration");
+      return NextResponse.json(
+        { error: "Supabase client not configured" },
+        { status: 500 }
+      );
+    }
+
+    // สร้าง Supabase client
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
     // ดึงข้อมูลยอดขายจากตาราง Payment
     const { data, error } = await supabase
       .from("Payment")
